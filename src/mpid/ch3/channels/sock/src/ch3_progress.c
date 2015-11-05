@@ -724,7 +724,7 @@ static int MPIDI_CH3I_Progress_handle_sock_event(MPIDI_CH3I_Sock_event_t * event
 /* end MPIDI_CH3I_Progress_handle_sock_event() */
 
 
-#ifdef MPICH_IS_THREADED
+#if defined(MPICH_IS_THREADED) && defined(MPIDI_CH3I_PROGRESS_DELAY)
 
 /* Note that this routine is only called if threads are enabled; 
    it does not need to check whether runtime threads are enabled */

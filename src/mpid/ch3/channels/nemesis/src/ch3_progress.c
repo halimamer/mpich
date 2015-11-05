@@ -48,7 +48,7 @@ extern MPIR_Request ** const MPID_Recvq_unexpected_tail_ptr;
 OPA_int_t MPIDI_CH3I_progress_completion_count = OPA_INT_T_INITIALIZER(0);
 
 /* NEMESIS MULTITHREADING: Extra Data Structures Added */
-#ifdef MPICH_IS_THREADED
+#if defined(MPICH_IS_THREADED) && defined(MPIDI_CH3I_PROGRESS_DELAY)
 volatile int MPIDI_CH3I_progress_blocked = FALSE;
 volatile int MPIDI_CH3I_progress_wakeup_signalled = FALSE;
 static MPID_Thread_cond_t MPIDI_CH3I_progress_completion_cond;
@@ -453,7 +453,7 @@ int MPIDI_CH3I_Progress (MPID_Progress_state *progress_state, int is_blocking)
 
 /* For threaded mode, if another thread is in the progress engine, we
  * don't enter the progress engine */
-#ifdef MPICH_IS_THREADED
+#if defined(MPICH_IS_THREADED) && defined(MPIDI_CH3I_PROGRESS_DELAY)
     MPIR_THREAD_CHECK_BEGIN;
     {
         while (MPIDI_CH3I_progress_blocked == TRUE)
@@ -623,7 +623,9 @@ int MPIDI_CH3I_Progress (MPID_Progress_state *progress_state, int is_blocking)
         MPIR_THREAD_CHECK_BEGIN;
         {
             if (is_blocking) {
+#ifdef MPIDI_CH3I_PROGRESS_DELAY
                 MPIDI_CH3I_progress_blocked = TRUE;
+#endif
                 MPID_THREAD_CS_YIELD(GLOBAL, MPIR_THREAD_GLOBAL_ALLFUNC_MUTEX);
                 /* MPIDCOMM yield is needed because at least the send
                  * functions acquire MPIDCOMM to put things into the send
@@ -636,8 +638,10 @@ int MPIDI_CH3I_Progress (MPID_Progress_state *progress_state, int is_blocking)
                  * Violating this will probably lead to lock-ordering
                  * deadlocks. */
                 MPID_THREAD_CS_YIELD(POBJ, MPIR_THREAD_GLOBAL_ALLFUNC_MUTEX);
+#ifdef MPIDI_CH3I_PROGRESS_DELAY
                 MPIDI_CH3I_progress_blocked = FALSE;
                 MPIDI_CH3I_progress_wakeup_signalled = FALSE;
+#endif
             }
         }
         MPIR_THREAD_CHECK_END;
@@ -648,7 +652,7 @@ int MPIDI_CH3I_Progress (MPID_Progress_state *progress_state, int is_blocking)
     while (is_blocking);
 
     
-#ifdef MPICH_IS_THREADED
+#if defined(MPICH_IS_THREADED) && defined(MPIDI_CH3I_PROGRESS_DELAY)
     MPIR_THREAD_CHECK_BEGIN;
     {
         if (is_blocking)
@@ -666,7 +670,7 @@ int MPIDI_CH3I_Progress (MPID_Progress_state *progress_state, int is_blocking)
  fn_fail:
     goto fn_exit;
 }
-#ifdef MPICH_IS_THREADED
+#if defined(MPICH_IS_THREADED) && defined(MPIDI_CH3I_PROGRESS_DELAY)
 
 /* Note that this routine is only called if threads are enabled;
    it does not need to check whether runtime threads are enabled */
@@ -973,7 +977,7 @@ int MPIDI_CH3I_Progress_init(void)
 
     MPIR_THREAD_CHECK_BEGIN;
     /* FIXME should be appropriately abstracted somehow */
-#   if defined(MPICH_IS_THREADED) && (MPICH_THREAD_GRANULARITY == MPICH_THREAD_GRANULARITY__GLOBAL)
+#   if defined(MPICH_IS_THREADED) && (MPICH_THREAD_GRANULARITY == MPICH_THREAD_GRANULARITY__GLOBAL) && defined(MPIDI_CH3I_PROGRESS_DELAY)
     {
         int err;
 	MPID_Thread_cond_create(&MPIDI_CH3I_progress_completion_cond, &err);
