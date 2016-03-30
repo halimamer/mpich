@@ -666,7 +666,7 @@ extern void MPIR_T_PVAR_REGISTER_impl(
 #define MPIR_T_PVAR_AGGREGATE_REGISTER_STATIC_impl(dtype_, name_, \
             verb_, bind_, flags_, cat_, desc_) \
     do { \
-        void *addr; \
+        void *addr_; \
         /* Allowable datatypes only */ \
         MPIR_Assert((dtype_) == MPI_UNSIGNED || (dtype_) == MPI_UNSIGNED_LONG || \
                     (dtype_) == MPI_UNSIGNED_LONG_LONG || (dtype_) == MPI_DOUBLE); \
