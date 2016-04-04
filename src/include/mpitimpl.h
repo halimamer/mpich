@@ -1172,12 +1172,12 @@ extern int MPIR_T_is_threaded;
 #define MPIR_T_THREAD_CHECK_END }
 
 #ifdef MPICH_IS_THREADED
-extern MPID_Thread_mutex_t mpi_t_mutex;
+extern pthread_mutex_t mpi_t_mutex;
 #define MPIR_T_THREAD_CS_INIT() \
     do { \
         int err_; \
         MPIR_T_THREAD_CHECK_BEGIN \
-        MPID_Thread_mutex_create(&mpi_t_mutex, &err_); \
+        err_ = pthread_mutex_init(&mpi_t_mutex, NULL); \
         MPIR_Assert(err_ == 0); \
         MPIR_T_THREAD_CHECK_END \
     } while (0)
@@ -1186,7 +1186,7 @@ extern MPID_Thread_mutex_t mpi_t_mutex;
     do { \
         int err_; \
         MPIR_T_THREAD_CHECK_BEGIN \
-        MPID_Thread_mutex_destroy(&mpi_t_mutex, &err_); \
+        err_ = pthread_mutex_destroy(&mpi_t_mutex); \
         MPIR_Assert(err_ == 0); \
         MPIR_T_THREAD_CHECK_END \
     } while (0)
@@ -1195,7 +1195,7 @@ extern MPID_Thread_mutex_t mpi_t_mutex;
     do { \
         int err;                              \
         MPIR_T_THREAD_CHECK_BEGIN             \
-            MPID_Thread_mutex_lock(&mpi_t_mutex,&err);  \
+            err = pthread_mutex_lock(&mpi_t_mutex);  \
         MPIR_T_THREAD_CHECK_END \
     } while (0)
 
@@ -1203,7 +1203,7 @@ extern MPID_Thread_mutex_t mpi_t_mutex;
     do { \
         int err;                  \
         MPIR_T_THREAD_CHECK_BEGIN \
-            MPID_Thread_mutex_unlock(&mpi_t_mutex,&err);  \
+            err = pthread_mutex_unlock(&mpi_t_mutex);  \
         MPIR_T_THREAD_CHECK_END \
     } while (0)
 #else /* !MPICH_IS_THREADED */

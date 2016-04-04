@@ -9,7 +9,7 @@
 int MPIR_T_init_balance = 0;
 
 #ifdef MPICH_IS_THREADED
-MPID_Thread_mutex_t mpi_t_mutex;
+pthread_mutex_t mpi_t_mutex;
 int MPIR_T_is_threaded;
 #endif
 
