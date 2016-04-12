@@ -92,6 +92,7 @@ MPIR_Request ** const MPID_Recvq_unexpected_head_ptr = &recvq_unexpected_head;
       ((match1).parts.context_id == (match2).parts.context_id)))
 
 
+static unsigned long long PVAR_COUNTER_recv_issued;
 static unsigned PVAR_LEVEL_posted_recvq_length ATTRIBUTE((unused));
 static unsigned PVAR_LEVEL_unexpected_recvq_length ATTRIBUTE((unused));
 static unsigned long long PVAR_COUNTER_posted_recvq_ops;
@@ -113,6 +114,16 @@ unsigned long long PVAR_LEVEL_unexpected_recvq_buffer_size ATTRIBUTE((unused));
 int MPIDI_CH3U_Recvq_init(void)
 {
     int mpi_errno = MPI_SUCCESS;
+    MPIR_T_PVAR_COUNTER_REGISTER_STATIC(
+        RECVQ,
+        MPI_UNSIGNED_LONG_LONG,
+        recv_issued,
+        MPI_T_VERBOSITY_USER_DETAIL,
+        MPI_T_BIND_NO_OBJECT,
+        (MPIR_T_PVAR_FLAG_READONLY | MPIR_T_PVAR_FLAG_CONTINUOUS),
+        "CH3", /* category name */
+        "number of recv operations issued");
+
     MPIR_T_PVAR_LEVEL_REGISTER_STATIC(
         RECVQ,
         MPI_UNSIGNED,
@@ -559,6 +570,8 @@ MPIR_Request * MPIDI_CH3U_Recvq_FDU_or_AEP(int source, int tag,
     MPIR_FUNC_VERBOSE_STATE_DECL(MPID_STATE_MPIDI_CH3U_RECVQ_FDU_OR_AEP);
 
     MPIR_FUNC_VERBOSE_ENTER(MPID_STATE_MPIDI_CH3U_RECVQ_FDU_OR_AEP);
+
+    MPIR_T_PVAR_COUNTER_INC(RECVQ, recv_issued, 1);
 
     /* Store how much time is spent traversing the queue */
     MPIR_T_PVAR_TIMER_START(RECVQ, time_matching_unexpectedq);
