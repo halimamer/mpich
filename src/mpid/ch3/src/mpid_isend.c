@@ -6,6 +6,25 @@
 
 #include "mpidimpl.h"
 
+static unsigned long long PVAR_COUNTER_send_issued;
+
+#define FUNCNAME MPIDI_CH3U_Send_init
+int MPIDI_CH3U_Send_init(void)
+{
+    int mpi_errno = MPI_SUCCESS;
+    MPIR_T_PVAR_COUNTER_REGISTER_STATIC(
+        RECVQ,
+        MPI_UNSIGNED_LONG_LONG,
+        send_issued,
+        MPI_T_VERBOSITY_USER_DETAIL,
+        MPI_T_BIND_NO_OBJECT,
+        (MPIR_T_PVAR_FLAG_READONLY | MPIR_T_PVAR_FLAG_CONTINUOUS),
+        "CH3", /* category name */
+        "number of send operations issued");
+    return mpi_errno;
+}
+
+
 /* FIXME: HOMOGENEOUS SYSTEMS ONLY -- no data conversion is performed */
 
 /* FIXME: The routines MPID_Isend, MPID_Issend, MPID_Irsend are nearly 
@@ -46,7 +65,10 @@ int MPID_Isend(const void * buf, MPI_Aint count, MPI_Datatype datatype, int rank
 
     MPIR_FUNC_VERBOSE_ENTER(MPID_STATE_MPID_ISEND);
 
+    MPIR_T_PVAR_COUNTER_INC(RECVQ, send_issued, 1);
+
     MPL_DBG_MSG_FMT(MPIDI_CH3_DBG_OTHER,VERBOSE,(MPL_DBG_FDEST,
+
                   "rank=%d, tag=%d, context=%d", 
                   rank, tag, comm->context_id + context_offset));
 

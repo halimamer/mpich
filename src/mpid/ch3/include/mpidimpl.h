@@ -1409,6 +1409,7 @@ int MPIDI_CH3_Connect_to_root(const char *, MPIDI_VC_t **);
  * Channel utility prototypes
  */
 int MPIDI_CH3U_Recvq_init(void);
+int MPIDI_CH3U_Send_init(void);
 int MPIDI_CH3U_Recvq_FU(int, int, int, MPI_Status * );
 MPIR_Request * MPIDI_CH3U_Recvq_FDU(MPI_Request, MPIDI_Message_match *);
 MPIR_Request * MPIDI_CH3U_Recvq_FDU_matchonly(int source, int tag, int context_id, MPIR_Comm *comm,

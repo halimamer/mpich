@@ -215,6 +215,10 @@ int MPID_Init(int *argc, char ***argv, int requested, int *provided,
     mpi_errno = MPIDI_CH3U_Recvq_init();
     if (mpi_errno) MPIR_ERR_POP(mpi_errno);
 
+    /* setup send statistics */
+    mpi_errno = MPIDI_CH3U_Send_init();
+    if (mpi_errno) MPIR_ERR_POP(mpi_errno);
+
     /* setup request statistics */
     mpi_errno = MPIDI_CH3U_Request_init();
     if (mpi_errno) MPIR_ERR_POP(mpi_errno);
