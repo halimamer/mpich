@@ -817,41 +817,59 @@ static volatile unsigned int max_error_ring_loc = 0;
 #if defined(MPID_REQUIRES_THREAD_SAFETY)
 /* if the device requires internal MPICH routines to be thread safe, the
    MPID_THREAD_CHECK macros are not appropriate */
-static MPID_Thread_mutex_t error_ring_mutex;
-#define error_ring_mutex_create(_mpi_errno_p_)			\
-    MPID_Thread_mutex_create(&error_ring_mutex, _mpi_errno_p_)
-#define error_ring_mutex_destroy(_mpi_errno_p)				\
-    MPID_Thread_mutex_destroy(&error_ring_mutex, _mpi_errno_p_)
+static pthread_mutex_t error_ring_mutex;
+#define error_ring_mutex_create(_mpi_errno_p_)                  \
+do {                                                            \
+   *_mpi_errno_p_ = pthread_mutex_init(&error_ring_mutex, NULL);\
+    MPIR_Assert(*_mpi_errno_p_ == 0);                           \
+}while(0)
+#define error_ring_mutex_destroy(_mpi_errno_p)                  \
+do {                                                            \
+    *_mpi_errno_p_ = pthread_mutex_destroy(&error_ring_mutex)   \
+    MPIR_Assert(*_mpi_errno_p_ == 0);                           \
+}
 #define error_ring_mutex_lock()                                 \
     do {                                                        \
         int err;                                                \
-        MPID_Thread_mutex_lock(&error_ring_mutex, &err);        \
+        err = pthread_mutex_lock(&error_ring_mutex);            \
+        MPIR_Assert(err == 0);                                  \
     } while (0)
 #define error_ring_mutex_unlock()                               \
     do {                                                        \
         int err;                                                \
-        MPID_Thread_mutex_unlock(&error_ring_mutex, &err);      \
+        err = pthread_mutex_unlock(&error_ring_mutex);          \
+        MPIR_Assert(err == 0);                                  \
     } while (0)
 #elif defined(MPICH_IS_THREADED)
-static MPID_Thread_mutex_t error_ring_mutex;
-#define error_ring_mutex_create(_mpi_errno_p) MPID_Thread_mutex_create(&error_ring_mutex,_mpi_errno_p)
-#define error_ring_mutex_destroy(_mpi_errno_p) MPID_Thread_mutex_destroy(&error_ring_mutex,_mpi_errno_p)
+static pthread_mutex_t error_ring_mutex;
+#define error_ring_mutex_create(_mpi_errno_p)                   \
+do {                                                            \
+    *_mpi_errno_p = pthread_mutex_init(&error_ring_mutex, NULL);\
+    MPIR_Assert(*_mpi_errno_p == 0);                            \
+}while(0)
+#define error_ring_mutex_destroy(_mpi_errno_p)                  \
+do {                                                            \
+    *_mpi_errno_p = pthread_mutex_destroy(&error_ring_mutex);   \
+    MPIR_Assert(*_mpi_errno_p == 0);                            \
+}while(0)
 #define error_ring_mutex_lock()                          \
     do {                                                 \
         int err;                                         \
         if (did_err_init) {                              \
-            MPIR_THREAD_CHECK_BEGIN;                        \
-            MPID_Thread_mutex_lock(&error_ring_mutex,&err); \
-            MPIR_THREAD_CHECK_END;                          \
+            MPIR_THREAD_CHECK_BEGIN                      \
+            err = pthread_mutex_lock(&error_ring_mutex); \
+            MPIR_Assert(err == 0);                       \
+            MPIR_THREAD_CHECK_END                        \
         }                                                \
     } while (0)
 #define error_ring_mutex_unlock()                        \
     do {                                                 \
         int err;                                         \
         if (did_err_init) {                              \
-            MPIR_THREAD_CHECK_BEGIN;                          \
-            MPID_Thread_mutex_unlock(&error_ring_mutex,&err); \
-            MPIR_THREAD_CHECK_END;                            \
+            MPIR_THREAD_CHECK_BEGIN                      \
+            err = pthread_mutex_unlock(&error_ring_mutex);\
+            MPIR_Assert(err == 0);                       \
+            MPIR_THREAD_CHECK_END                        \
         }                                                \
     } while (0)
 #else
