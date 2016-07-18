@@ -1193,17 +1193,19 @@ extern pthread_mutex_t mpi_t_mutex;
 
 #define MPIR_T_THREAD_CS_ENTER() \
     do { \
-        int err;                              \
+        int err_;                              \
         MPIR_T_THREAD_CHECK_BEGIN             \
-            err = pthread_mutex_lock(&mpi_t_mutex);  \
+            err_ = pthread_mutex_lock(&mpi_t_mutex);  \
+            MPIU_Assert(err_ == 0); \
         MPIR_T_THREAD_CHECK_END \
     } while (0)
 
 #define MPIR_T_THREAD_CS_EXIT() \
     do { \
-        int err;                  \
+        int err_;                  \
         MPIR_T_THREAD_CHECK_BEGIN \
-            err = pthread_mutex_unlock(&mpi_t_mutex);  \
+            err_ = pthread_mutex_unlock(&mpi_t_mutex);  \
+            MPIU_Assert(err_ == 0); \
         MPIR_T_THREAD_CHECK_END \
     } while (0)
 #else /* !MPICH_IS_THREADED */
