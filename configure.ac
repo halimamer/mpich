@@ -388,6 +388,7 @@ AC_ARG_ENABLE([mpit_pvars],
                       including (Default is "none"):
         none     - No performance info recorded
         recvq    - All message queue-related
+        request  - All message queue-related
         nem      - All nemesis-related
         rma      - All rma-related
         all      - All variables above
@@ -1846,11 +1847,13 @@ for var in $enable_mpit_pvars ; do
     AS_CASE(["$var"],
             [nem],[enable_pvar_nem=yes],
             [recvq],[enable_pvar_recvq=yes],
+            [request],[enable_pvar_recvq=yes],
             [rma],[enable_pvar_rma=yes],
 	    [dims],[enable_pvar_dims=yes],
             [all|yes],
             [enable_pvar_nem=yes
              enable_pvar_recvq=yes
+             enable_pvar_req=yes
              enable_pvar_rma=yes
 	     enable_pvar_dims=yes
 	     ],
@@ -1876,6 +1879,14 @@ else
 fi
 AC_DEFINE_UNQUOTED(ENABLE_PVAR_RECVQ,$status_recvq_pvars,
           [Define to 1 to enable message receive queue-related MPI_T performance variables])
+
+if test -n "$enable_pvar_req" ; then
+    status_req_pvars=1
+else
+    status_req_pvars=0
+fi
+AC_DEFINE_UNQUOTED(ENABLE_PVAR_REQUEST,$status_req_pvars,
+          [Define to 1 to enable request-related MPI_T performance variables])
 
 if test -n "$enable_pvar_rma" ; then
     status_rma_pvars=1

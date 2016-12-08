@@ -215,6 +215,10 @@ int MPID_Init(int *argc, char ***argv, int requested, int *provided,
     mpi_errno = MPIDI_CH3U_Recvq_init();
     if (mpi_errno) MPIR_ERR_POP(mpi_errno);
 
+    /* setup request statistics */
+    mpi_errno = MPIDI_CH3U_Request_init();
+    if (mpi_errno) MPIR_ERR_POP(mpi_errno);
+
     /* Ask channel to expose Window packet ordering. */
     MPIDI_CH3_Win_pkt_orderings_init(&MPIDI_CH3U_Win_pkt_orderings);
 

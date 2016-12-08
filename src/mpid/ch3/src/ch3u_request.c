@@ -6,6 +6,47 @@
 
 #include "mpidimpl.h"
 
+static unsigned int PVAR_COUNTER_tot_req_created;
+static unsigned int PVAR_COUNTER_tot_req_complet;
+static unsigned int PVAR_COUNTER_tot_req_freed;
+
+#undef FUNCNAME
+#define FUNCNAME MPIDI_CH3U_Request_init
+#undef FCNAME
+#define FCNAME MPL_QUOTE(FUNCNAME)
+int MPIDI_CH3U_Request_init(void)
+{
+    int mpi_errno = MPI_SUCCESS;
+    MPIR_T_PVAR_COUNTER_REGISTER_STATIC(
+        REQUEST,
+        MPI_UNSIGNED,
+        tot_req_created,
+        MPI_T_VERBOSITY_USER_DETAIL,
+        MPI_T_BIND_NO_OBJECT,
+        (MPIR_T_PVAR_FLAG_READONLY | MPIR_T_PVAR_FLAG_CONTINUOUS),
+        "CH3", /* category name */
+        "total number of requests created");
+    MPIR_T_PVAR_COUNTER_REGISTER_STATIC(
+        REQUEST,
+        MPI_UNSIGNED,
+        tot_req_complet,
+        MPI_T_VERBOSITY_USER_DETAIL,
+        MPI_T_BIND_NO_OBJECT,
+        (MPIR_T_PVAR_FLAG_READONLY | MPIR_T_PVAR_FLAG_CONTINUOUS),
+        "CH3", /* category name */
+        "total number of requests completed");
+    MPIR_T_PVAR_COUNTER_REGISTER_STATIC(
+        REQUEST,
+        MPI_UNSIGNED,
+        tot_req_freed,
+        MPI_T_VERBOSITY_USER_DETAIL,
+        MPI_T_BIND_NO_OBJECT,
+        (MPIR_T_PVAR_FLAG_READONLY | MPIR_T_PVAR_FLAG_CONTINUOUS),
+        "CH3", /* category name */
+        "total number of requests freed");
+    return mpi_errno;
+}
+
 /* This file contains two types of routines associated with requests: 
  * Routines to allocate and free requests
  * Routines to manage iovs on requests 
@@ -62,6 +103,7 @@ void MPID_Request_create_hook(MPIR_Request *req)
 #ifdef MPIDI_CH3_REQUEST_INIT
     MPIDI_CH3_REQUEST_INIT(req);
 #endif
+    MPIR_T_PVAR_COUNTER_INC(REQUEST, tot_req_created, 1);
 }
 
 
@@ -583,6 +625,7 @@ int MPID_Request_complete(MPIR_Request *req)
         if (req->completion_notification)
             MPIR_cc_decr(req->completion_notification, &notify_counter);
 
+    MPIR_T_PVAR_COUNTER_INC(REQUEST, tot_req_complet, 1);
 	MPIR_Request_free(req);
 	MPIDI_CH3_Progress_signal_completion();
     }
@@ -596,6 +639,8 @@ int MPID_Request_complete(MPIR_Request *req)
 
 void MPID_Request_free_hook(MPIR_Request *req)
 {
+
+    MPIR_T_PVAR_COUNTER_INC(REQUEST, tot_req_freed, 1);
     return;
 }
 
