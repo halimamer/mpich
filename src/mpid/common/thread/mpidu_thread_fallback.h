@@ -58,8 +58,16 @@ g * MPI_FINALIZED, MPI_GET_COUNT, MPI_GET_ELEMENTS, MPI_GRAPH_GET,
  * state.  Such situations should be avoided where possible.
  */
 
+#if defined(ENABLE_IZEM)
+#include "lock/zm_lock.h"
+#endif
+
 typedef struct {
+#if !defined(ENABLE_IZEM)
     MPL_thread_mutex_t mutex;
+#else
+    zm_lock_t mutex;
+#endif
     OPA_int_t num_queued_threads;
 } MPIDU_Thread_mutex_t;
 
@@ -286,6 +294,32 @@ M*/
 @*/
 #define MPIDU_Thread_same       MPL_thread_same
 
+#if !defined(ENABLE_IZEM)
+#define MPIDUI_thread_mutex_create(mutex_ptr_, err_ptr_)                \
+    MPL_thread_mutex_create(mutex_ptr_, err_ptr_)
+#define MPIDUI_thread_mutex_destroy(mutex_ptr_, err_ptr_)               \
+    MPL_thread_mutex_destroy(mutex_ptr_, err_ptr_)
+#define MPIDUI_thread_mutex_lock(mutex_ptr_, err_ptr_)                  \
+    MPL_thread_mutex_lock(mutex_ptr_, err_ptr_)
+#define MPIDUI_thread_mutex_unlock(mutex_ptr_, err_ptr_)                \
+    MPL_thread_mutex_unlock(mutex_ptr_, err_ptr_)
+#else
+#define MPIDUI_thread_mutex_create(mutex_ptr_, err_ptr_)                \
+do {                                                                    \
+        *err_ptr_ = zm_lock_init(mutex_ptr_);                           \
+} while (0)
+#define MPIDUI_thread_mutex_destroy(mutex_ptr_, err_ptr_)                \
+do {                                                                    \
+        *err_ptr_ = 0;                                                  \
+} while (0)
+#define MPIDUI_thread_mutex_lock(mutex_ptr_, err_ptr_)                  \
+        zm_lock_ctxt_t ctxt;                                            \
+        *err_ptr_ = zm_lock_acquire(mutex_ptr_, &ctxt);
+#define MPIDUI_thread_mutex_unlock(mutex_ptr_, err_ptr_)                \
+        *err_ptr_ = zm_lock_release(mutex_ptr_, NULL);
+#endif
+
+
 /*@
   MPIDU_Thread_yield - voluntarily relinquish the CPU, giving other threads an opportunity to run
 @*/
@@ -314,7 +348,7 @@ M*/
 #define MPIDU_Thread_mutex_create(mutex_ptr_, err_ptr_)                 \
     do {                                                                \
         OPA_store_int(&(mutex_ptr_)->num_queued_threads, 0);            \
-        MPL_thread_mutex_create(&(mutex_ptr_)->mutex, err_ptr_);        \
+        MPIDUI_thread_mutex_create(&(mutex_ptr_)->mutex, err_ptr_);      \
         MPIR_Assert(*err_ptr_ == 0);                                    \
         MPL_DBG_MSG_P(MPIR_DBG_THREAD,TYPICAL,"Created MPL_thread_mutex %p", (mutex_ptr_)); \
     } while (0)
@@ -331,7 +365,7 @@ M*/
 #define MPIDU_Thread_mutex_destroy(mutex_ptr_, err_ptr_)                \
     do {                                                                \
         MPL_DBG_MSG_P(MPIR_DBG_THREAD,TYPICAL,"About to destroy MPL_thread_mutex %p", (mutex_ptr_)); \
-        MPL_thread_mutex_destroy(&(mutex_ptr_)->mutex, err_ptr_);       \
+        MPIDUI_thread_mutex_destroy(&(mutex_ptr_)->mutex, err_ptr_);    \
         MPIR_Assert(*err_ptr_ == 0);                                    \
     } while (0)
 
@@ -345,7 +379,7 @@ M*/
     do {                                                                \
         OPA_incr_int(&(mutex_ptr_)->num_queued_threads);                \
         MPL_DBG_MSG_P(MPIR_DBG_THREAD,VERBOSE,"enter MPL_thread_mutex_lock %p", &(mutex_ptr_)->mutex); \
-        MPL_thread_mutex_lock(&(mutex_ptr_)->mutex, err_ptr_);          \
+        MPIDUI_thread_mutex_lock(&(mutex_ptr_)->mutex, err_ptr_);       \
         MPIR_Assert(*err_ptr_ == 0);                                    \
         MPL_DBG_MSG_P(MPIR_DBG_THREAD,VERBOSE,"exit MPL_thread_mutex_lock %p", &(mutex_ptr_)->mutex); \
         OPA_decr_int(&(mutex_ptr_)->num_queued_threads);                \
@@ -359,7 +393,7 @@ M*/
 @*/
 #define MPIDU_Thread_mutex_unlock(mutex_ptr_, err_ptr_)                 \
     do {                                                                \
-        MPL_thread_mutex_unlock(&(mutex_ptr_)->mutex, err_ptr_);        \
+        MPIDUI_thread_mutex_unlock(&(mutex_ptr_)->mutex, err_ptr_);     \
         MPIR_Assert(*err_ptr_ == 0);                                    \
     } while (0)
 

@@ -462,6 +462,14 @@ fi
 export ABIVERSIONFLAGS
 AC_SUBST(ABIVERSIONFLAGS)
 
+AC_ARG_ENABLE(izem,
+        [AC_HELP_STRING([--enable-izem],[Enable using the Izem library])],,
+        [enable_izem=no])
+
+if test "$enable_izem" = "yes" ; then
+    AC_DEFINE(ENABLE_IZEM,1,[Define to enable using the Izem library])
+fi
+
 
 dnl The environment variable MPICH_DEBUGLIBNAME may be used to
 dnl override the default name of the library that the debugger will
