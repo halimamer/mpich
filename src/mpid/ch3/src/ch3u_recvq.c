@@ -94,6 +94,10 @@ MPIR_Request ** const MPID_Recvq_unexpected_head_ptr = &recvq_unexpected_head;
 
 static unsigned PVAR_LEVEL_posted_recvq_length ATTRIBUTE((unused));
 static unsigned PVAR_LEVEL_unexpected_recvq_length ATTRIBUTE((unused));
+static unsigned long long PVAR_COUNTER_posted_recvq_ops;
+static unsigned long long PVAR_COUNTER_unexpected_recvq_ops;
+static unsigned long long PVAR_COUNTER_posted_recvq_length_sum;
+static unsigned long long PVAR_COUNTER_unexpected_recvq_length_sum;
 static unsigned long long PVAR_COUNTER_posted_recvq_match_attempts ATTRIBUTE((unused));
 static unsigned long long PVAR_COUNTER_unexpected_recvq_match_attempts ATTRIBUTE((unused));
 static MPIR_T_pvar_timer_t PVAR_TIMER_time_failed_matching_postedq ATTRIBUTE((unused));
@@ -130,6 +134,47 @@ int MPIDI_CH3U_Recvq_init(void)
         (MPIR_T_PVAR_FLAG_READONLY | MPIR_T_PVAR_FLAG_CONTINUOUS),
         "CH3", /* category name */
         "length of the unexpected message receive queue");
+
+    MPIR_T_PVAR_COUNTER_REGISTER_STATIC(
+        RECVQ,
+        MPI_UNSIGNED_LONG_LONG,
+        posted_recvq_ops,
+        MPI_T_VERBOSITY_USER_DETAIL,
+        MPI_T_BIND_NO_OBJECT,
+        (MPIR_T_PVAR_FLAG_READONLY | MPIR_T_PVAR_FLAG_CONTINUOUS),
+        "CH3", /* category name */
+        "number of operations on the posted message receive queue");
+
+    MPIR_T_PVAR_COUNTER_REGISTER_STATIC(
+        RECVQ,
+        MPI_UNSIGNED_LONG_LONG,
+        unexpected_recvq_ops,
+        MPI_T_VERBOSITY_USER_DETAIL,
+        MPI_T_BIND_NO_OBJECT,
+        (MPIR_T_PVAR_FLAG_READONLY | MPIR_T_PVAR_FLAG_CONTINUOUS),
+        "CH3", /* category name */
+        "number of operations on the unexpected message receive queue");
+
+    MPIR_T_PVAR_AGGREGATE_REGISTER_STATIC(
+        RECVQ,
+        MPI_UNSIGNED_LONG_LONG,
+        posted_recvq_length_sum,
+        MPI_T_VERBOSITY_USER_DETAIL,
+        MPI_T_BIND_NO_OBJECT,
+        (MPIR_T_PVAR_FLAG_READONLY | MPIR_T_PVAR_FLAG_CONTINUOUS),
+        "CH3", /* category name */
+        "aggregated lengths of the posted message receive queue");
+
+    MPIR_T_PVAR_AGGREGATE_REGISTER_STATIC(
+        RECVQ,
+        MPI_UNSIGNED_LONG_LONG,
+        unexpected_recvq_length_sum,
+        MPI_T_VERBOSITY_USER_DETAIL,
+        MPI_T_BIND_NO_OBJECT,
+        (MPIR_T_PVAR_FLAG_READONLY | MPIR_T_PVAR_FLAG_CONTINUOUS),
+        "CH3", /* category name */
+        "aggregated lengths of the unexpected message receive queue");
+
 
     MPIR_T_PVAR_COUNTER_REGISTER_STATIC(
         RECVQ,
@@ -353,6 +398,10 @@ MPIR_Request * MPIDI_CH3U_Recvq_FDU(MPI_Request sreq_id,
 	}
 
     MPIR_T_PVAR_LEVEL_DEC(RECVQ, unexpected_recvq_length, 1);
+    MPIR_T_PVAR_COUNTER_INC(RECVQ, unexpected_recvq_ops, 1);
+    MPIR_T_PVAR_AGGREGATE_INC(RECVQ, unexpected_recvq_length_sum,
+                              MPIR_T_PVAR_LEVEL_GET(unexpected_recvq_length));
+
 	rreq = matching_cur_rreq;
 
         MPIR_T_PVAR_LEVEL_DEC(RECVQ, unexpected_recvq_buffer_size, rreq->dev.tmpbuf_sz);
@@ -416,6 +465,10 @@ MPIR_Request * MPIDI_CH3U_Recvq_FDU_matchonly(int source, int tag, int context_i
                         recvq_unexpected_tail = prev_rreq;
                     }
                     MPIR_T_PVAR_LEVEL_DEC(RECVQ, unexpected_recvq_length, 1);
+                    MPIR_T_PVAR_COUNTER_INC(RECVQ, unexpected_recvq_ops, 1);
+                    MPIR_T_PVAR_AGGREGATE_INC(RECVQ, unexpected_recvq_length_sum,
+                                              MPIR_T_PVAR_LEVEL_GET(unexpected_recvq_length));
+
                     MPIR_T_PVAR_LEVEL_DEC(RECVQ, unexpected_recvq_buffer_size, rreq->dev.tmpbuf_sz);
 
                     rreq->comm = comm;
@@ -448,6 +501,10 @@ MPIR_Request * MPIDI_CH3U_Recvq_FDU_matchonly(int source, int tag, int context_i
                         recvq_unexpected_tail = prev_rreq;
                     }
                     MPIR_T_PVAR_LEVEL_DEC(RECVQ, unexpected_recvq_length, 1);
+                    MPIR_T_PVAR_COUNTER_INC(RECVQ, unexpected_recvq_ops, 1);
+                    MPIR_T_PVAR_AGGREGATE_INC(RECVQ, unexpected_recvq_length_sum,
+                                              MPIR_T_PVAR_LEVEL_GET(unexpected_recvq_length));
+
                     MPIR_T_PVAR_LEVEL_DEC(RECVQ, unexpected_recvq_buffer_size, rreq->dev.tmpbuf_sz);
 
                     rreq->comm                 = comm;
@@ -536,6 +593,10 @@ MPIR_Request * MPIDI_CH3U_Recvq_FDU_or_AEP(int source, int tag,
 			recvq_unexpected_tail = prev_rreq;
 		    }
             MPIR_T_PVAR_LEVEL_DEC(RECVQ, unexpected_recvq_length, 1);
+            MPIR_T_PVAR_COUNTER_INC(RECVQ, unexpected_recvq_ops, 1);
+            MPIR_T_PVAR_AGGREGATE_INC(RECVQ, unexpected_recvq_length_sum,
+                                      MPIR_T_PVAR_LEVEL_GET(unexpected_recvq_length));
+
 
             if (MPIDI_Request_get_msg_type(rreq) == MPIDI_REQUEST_EAGER_MSG)
                 MPIR_T_PVAR_LEVEL_DEC(RECVQ, unexpected_recvq_buffer_size, rreq->dev.tmpbuf_sz);
@@ -572,6 +633,9 @@ MPIR_Request * MPIDI_CH3U_Recvq_FDU_or_AEP(int source, int tag,
                         recvq_unexpected_tail = prev_rreq;
                     }
                     MPIR_T_PVAR_LEVEL_DEC(RECVQ, unexpected_recvq_length, 1);
+                    MPIR_T_PVAR_COUNTER_INC(RECVQ, unexpected_recvq_ops, 1);
+                    MPIR_T_PVAR_AGGREGATE_INC(RECVQ, unexpected_recvq_length_sum,
+                                              MPIR_T_PVAR_LEVEL_GET(unexpected_recvq_length));
 
                     if (MPIDI_Request_get_msg_type(rreq) == MPIDI_REQUEST_EAGER_MSG)
                         MPIR_T_PVAR_LEVEL_DEC(RECVQ, unexpected_recvq_buffer_size, rreq->dev.tmpbuf_sz);
@@ -642,6 +706,10 @@ MPIR_Request * MPIDI_CH3U_Recvq_FDU_or_AEP(int source, int tag,
 	}
 	recvq_posted_tail = rreq;
     MPIR_T_PVAR_LEVEL_INC(RECVQ, posted_recvq_length, 1);
+    MPIR_T_PVAR_COUNTER_INC(RECVQ, posted_recvq_ops, 1);
+    MPIR_T_PVAR_AGGREGATE_INC(RECVQ, posted_recvq_length_sum,
+                              MPIR_T_PVAR_LEVEL_GET(posted_recvq_length));
+
 	MPIDI_POSTED_RECV_ENQUEUE_HOOK(rreq);
     }
     
@@ -699,6 +767,10 @@ int MPIDI_CH3U_Recvq_DP(MPIR_Request * rreq)
 		recvq_posted_tail = prev_rreq;
 	    }
         MPIR_T_PVAR_LEVEL_DEC(RECVQ, posted_recvq_length, 1);
+        MPIR_T_PVAR_COUNTER_INC(RECVQ, posted_recvq_ops, 1);
+        MPIR_T_PVAR_AGGREGATE_INC(RECVQ, posted_recvq_length_sum,
+                                  MPIR_T_PVAR_LEVEL_GET(posted_recvq_length));
+
             /* Notify channel that rreq has been dequeued and check if
                it has already matched rreq, fail if so */
 	    dequeue_failed = MPIDI_POSTED_RECV_DEQUEUE_HOOK(rreq);
@@ -781,6 +853,10 @@ MPIR_Request * MPIDI_CH3U_Recvq_FDP_or_AEU(MPIDI_Message_match * match,
 		recvq_posted_tail = prev_rreq;
 	    }
         MPIR_T_PVAR_LEVEL_DEC(RECVQ, posted_recvq_length, 1);
+        MPIR_T_PVAR_COUNTER_INC(RECVQ, posted_recvq_ops, 1);
+        MPIR_T_PVAR_AGGREGATE_INC(RECVQ, posted_recvq_length_sum,
+                                  MPIR_T_PVAR_LEVEL_GET(posted_recvq_length));
+
 
             /* Give channel a chance to match the request */
             channel_matched = MPIDI_POSTED_RECV_DEQUEUE_HOOK(rreq);
@@ -844,6 +920,9 @@ MPIR_Request * MPIDI_CH3U_Recvq_FDP_or_AEU(MPIDI_Message_match * match,
 	}
 	recvq_unexpected_tail = rreq;
     MPIR_T_PVAR_LEVEL_INC(RECVQ, unexpected_recvq_length, 1);
+    MPIR_T_PVAR_COUNTER_INC(RECVQ, unexpected_recvq_ops, 1);
+    MPIR_T_PVAR_AGGREGATE_INC(RECVQ, unexpected_recvq_length_sum,
+                              MPIR_T_PVAR_LEVEL_GET(unexpected_recvq_length));
     }
     
     found = FALSE;
@@ -881,7 +960,13 @@ static inline void dequeue_and_set_error(MPIR_Request **req,  MPIR_Request *prev
     
     /* remove from queue */
     if (*head == *req) {
-        if (*head == recvq_posted_head) MPIR_T_PVAR_LEVEL_DEC(RECVQ, posted_recvq_length, 1);
+        if (*head == recvq_posted_head) {
+            MPIR_T_PVAR_LEVEL_DEC(RECVQ, posted_recvq_length, 1);
+            MPIR_T_PVAR_COUNTER_INC(RECVQ, posted_recvq_ops, 1);
+            MPIR_T_PVAR_AGGREGATE_INC(RECVQ, posted_recvq_length_sum,
+                                      MPIR_T_PVAR_LEVEL_GET(posted_recvq_length));
+        }
+
 
         *head = (*req)->dev.next;
     } else
