@@ -297,6 +297,8 @@ M*/
     MPL_thread_mutex_destroy(mutex_ptr_, err_ptr_)
 #define MPIDUI_thread_mutex_lock(mutex_ptr_, err_ptr_)                  \
     MPL_thread_mutex_lock(mutex_ptr_, err_ptr_)
+#define MPIDUI_thread_mutex_lock_l(mutex_ptr_, err_ptr_)                  \
+    MPL_thread_mutex_lock(mutex_ptr_, err_ptr_)
 #define MPIDUI_thread_mutex_unlock(mutex_ptr_, err_ptr_)                \
     MPL_thread_mutex_unlock(mutex_ptr_, err_ptr_)
 #else
@@ -311,6 +313,9 @@ do {                                                                    \
 #define MPIDUI_thread_mutex_lock(mutex_ptr_, err_ptr_)                  \
         zm_lock_ctxt_t ctxt;                                            \
         *err_ptr_ = zm_lock_acquire(mutex_ptr_, &ctxt);
+#define MPIDUI_thread_mutex_lock_l(mutex_ptr_, err_ptr_)                  \
+        zm_lock_ctxt_t ctxt;                                            \
+        *err_ptr_ = zm_lock_acquire_l(mutex_ptr_, &ctxt);
 #define MPIDUI_thread_mutex_unlock(mutex_ptr_, err_ptr_)                \
         *err_ptr_ = zm_lock_release(mutex_ptr_, NULL);
 #endif
@@ -324,7 +329,7 @@ do {                                                                    \
         MPIDU_Thread_mutex_unlock(mutex_ptr_, err_ptr_);                \
         MPIR_Assert(*err_ptr_ == 0);                                    \
         MPL_thread_yield();                                             \
-        MPIDU_Thread_mutex_lock(mutex_ptr_, err_ptr_);                  \
+        MPIDU_Thread_mutex_lock_l(mutex_ptr_, err_ptr_);                  \
         MPIR_Assert(*err_ptr_ == 0);                                    \
     } while (0)
 
@@ -372,6 +377,14 @@ do {                                                                    \
     do {                                                                \
         MPL_DBG_MSG_P(MPIR_DBG_THREAD,VERBOSE,"enter MPL_thread_mutex_lock %p", mutex_ptr_); \
         MPIDUI_thread_mutex_lock(mutex_ptr_, err_ptr_);       \
+        MPIR_Assert(*err_ptr_ == 0);                                    \
+        MPL_DBG_MSG_P(MPIR_DBG_THREAD,VERBOSE,"exit MPL_thread_mutex_lock %p", mutex_ptr_); \
+    } while (0)
+
+#define MPIDU_Thread_mutex_lock_l(mutex_ptr_, err_ptr_)                   \
+    do {                                                                \
+        MPL_DBG_MSG_P(MPIR_DBG_THREAD,VERBOSE,"enter MPL_thread_mutex_lock %p", mutex_ptr_); \
+        MPIDUI_thread_mutex_lock_l(mutex_ptr_, err_ptr_);       \
         MPIR_Assert(*err_ptr_ == 0);                                    \
         MPL_DBG_MSG_P(MPIR_DBG_THREAD,VERBOSE,"exit MPL_thread_mutex_lock %p", mutex_ptr_); \
     } while (0)
