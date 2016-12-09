@@ -117,7 +117,7 @@ int MPI_Test(MPI_Request *request, int *flag, MPI_Status *status)
 
     MPIR_ERRTEST_INITIALIZED_ORDIE();
     
-    MPID_THREAD_CS_ENTER(GLOBAL, MPIR_THREAD_GLOBAL_ALLFUNC_MUTEX);
+    MPID_THREAD_CS_ENTER_L(GLOBAL, MPIR_THREAD_GLOBAL_ALLFUNC_MUTEX);
     MPIR_FUNC_TERSE_PT2PT_ENTER(MPID_STATE_MPI_TEST);
 
     /* Validate parameters, especially handles needing to be converted */

@@ -130,6 +130,43 @@ M*/
 
 #endif /* MPICH_IS_THREADED */
 
+/*M MPIDU_THREAD_CS_ENTER_L - Enter a named critical section with low priority
+
+  Input Parameters:
++ _name - name of the critical section
+- _context - A context (typically an object) of the critical section
+
+M*/
+#define MPIDU_THREAD_CS_ENTER_L(name, mutex) MPIDUI_THREAD_CS_ENTER_L_##name(mutex)
+
+#if defined(MPICH_IS_THREADED)
+#define MPIDUI_THREAD_CS_ENTER_L_GLOBAL(mutex)                          \
+    do {                                                                \
+        if (MPIR_ThreadInfo.isThreaded) {                               \
+            int rec_err_ = 0;                                           \
+            MPIR_Per_thread_t *per_thread = NULL;                              \
+                                                                        \
+            MPL_DBG_MSG(MPIR_DBG_THREAD, TYPICAL, "recursive locking GLOBAL mutex"); \
+            MPID_THREADPRIV_KEY_GET_ADDR(MPIR_ThreadInfo.isThreaded, MPIR_Per_thread_key, \
+                                         MPIR_Per_thread, per_thread, &rec_err_); \
+            MPIR_Assert(rec_err_ == 0);                                 \
+                                                                        \
+            if (per_thread->lock_depth == 0) {                          \
+                int err_ = 0;                                           \
+                MPIDU_Thread_mutex_lock_l(&mutex, &err_);               \
+                MPIR_Assert(err_ == 0);                                 \
+            }                                                           \
+            per_thread->lock_depth++;                                   \
+        }                                                               \
+    } while (0)
+#define MPIDUI_THREAD_CS_ENTER_L_POBJ(mutex) do {} while (0)
+#else  /* !defined(MPICH_IS_THREADED) */
+
+#define MPIDUI_THREAD_CS_ENTER_L_GLOBAL(mutex) do {} while (0)
+#define MPIDUI_THREAD_CS_ENTER_L_POBJ(mutex) do {} while (0)
+
+#endif /* MPICH_IS_THREADED */
+
 
 /*M MPIDU_THREAD_CS_EXIT - Exit a named critical section
 

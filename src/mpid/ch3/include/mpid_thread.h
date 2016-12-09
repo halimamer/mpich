@@ -19,6 +19,7 @@ typedef MPIDU_Thread_tls_t   MPID_Thread_tls_t;
 typedef MPIDU_Thread_func_t  MPID_Thread_func_t;
 
 #define MPID_THREAD_CS_ENTER       MPIDU_THREAD_CS_ENTER
+#define MPID_THREAD_CS_ENTER_L     MPIDU_THREAD_CS_ENTER_L
 #define MPID_THREAD_CS_EXIT        MPIDU_THREAD_CS_EXIT
 #define MPID_THREAD_CS_YIELD       MPIDU_THREAD_CS_YIELD
 
@@ -31,6 +32,7 @@ typedef MPIDU_Thread_func_t  MPID_Thread_func_t;
 #define MPID_Thread_mutex_create  MPIDU_Thread_mutex_create
 #define MPID_Thread_mutex_destroy  MPIDU_Thread_mutex_destroy
 #define MPID_Thread_mutex_lock MPIDU_Thread_mutex_lock
+#define MPID_Thread_mutex_lock_l MPIDU_Thread_mutex_lock_l
 #define MPID_Thread_mutex_unlock MPIDU_Thread_mutex_unlock
 
 #define MPID_Thread_cond_create MPIDU_Thread_cond_create
