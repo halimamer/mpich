@@ -15,6 +15,16 @@
 #include <signal.h>
 #endif
 
+#ifdef MPICH_LOCK_TRACING
+OPA_align_int_t nwaiters;
+int lock_trace_idx        = 0;
+int8_t made_some_progress = 0;
+trace_elmt_t* lock_trace  = NULL;
+__thread int my_core      = -1;
+
+FILE* lock_trace_fd       = NULL;
+#endif
+
 typedef struct vc_term_element
 {
     struct vc_term_element *next;
@@ -615,6 +625,9 @@ int MPIDI_CH3I_Progress (MPID_Progress_state *progress_state, int is_blocking)
                 OPA_read_barrier();
                 /* reset for the next iteration */
                 progress_state->ch.completion_count = completion_count;
+#ifdef MPICH_LOCK_TRACING
+                made_some_progress = 1;
+#endif
                 break;
             }
         }

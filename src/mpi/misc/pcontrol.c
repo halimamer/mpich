@@ -7,6 +7,8 @@
 
 #include "mpiimpl.h"
 
+int MPIDUI_lock_tracing_enabled = 0;
+
 /* -- Begin Profiling Symbol Block for routine MPI_Pcontrol */
 #if defined(HAVE_PRAGMA_WEAK)
 #pragma weak MPI_Pcontrol = PMPI_Pcontrol
@@ -68,6 +70,10 @@ int MPI_Pcontrol(const int level, ...)
        access any optional arguments */
     va_start( list, level );
     va_end( list );
+
+#if defined(MPICH_LOCK_TRACING)
+    MPIDUI_lock_tracing_enabled = level;
+#endif
 
     /* ... end of body of routine ... */
     MPIR_FUNC_TERSE_EXIT(MPID_STATE_MPI_PCONTROL);
