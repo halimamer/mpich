@@ -19,5 +19,7 @@ mpi_core_sources += \
     src/mpi/init/initinfo.c       \
     src/mpi/init/async.c
 
+AM_CFLAGS=-D_GNU_SOURCE
+
 noinst_HEADERS += src/mpi/init/mpi_init.h
 

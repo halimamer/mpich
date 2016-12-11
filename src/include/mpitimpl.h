@@ -1196,7 +1196,7 @@ extern pthread_mutex_t mpi_t_mutex;
         int err_;                              \
         MPIR_T_THREAD_CHECK_BEGIN             \
             err_ = pthread_mutex_lock(&mpi_t_mutex);  \
-            MPIU_Assert(err_ == 0); \
+            MPIR_Assert(err_ == 0); \
         MPIR_T_THREAD_CHECK_END \
     } while (0)
 
@@ -1205,7 +1205,7 @@ extern pthread_mutex_t mpi_t_mutex;
         int err_;                  \
         MPIR_T_THREAD_CHECK_BEGIN \
             err_ = pthread_mutex_unlock(&mpi_t_mutex);  \
-            MPIU_Assert(err_ == 0); \
+            MPIR_Assert(err_ == 0); \
         MPIR_T_THREAD_CHECK_END \
     } while (0)
 #else /* !MPICH_IS_THREADED */

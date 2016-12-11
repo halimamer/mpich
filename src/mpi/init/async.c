@@ -17,6 +17,8 @@ static pthread_cond_t progress_cond;
 static volatile int progress_thread_done = 0;
 
 #if defined(__linux__)
+#define _GNU_SOURCE
+#include <sched.h>
 static int verbose = 0;
 
 static int core_count(void){
