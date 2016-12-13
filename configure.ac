@@ -1847,7 +1847,7 @@ for var in $enable_mpit_pvars ; do
     AS_CASE(["$var"],
             [nem],[enable_pvar_nem=yes],
             [recvq],[enable_pvar_recvq=yes],
-            [request],[enable_pvar_recvq=yes],
+            [request],[enable_pvar_req=yes],
             [rma],[enable_pvar_rma=yes],
 	    [dims],[enable_pvar_dims=yes],
             [all|yes],
