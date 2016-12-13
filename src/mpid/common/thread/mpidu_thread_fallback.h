@@ -97,14 +97,14 @@ extern int MPIDUI_lock_tracing_enabled;
     do {                                                                \
         lock_trace_idx = 0;                                             \
         OPA_store_int(&nwaiters, 0);                                    \
-        lock_trace = (trace_elmt_t*) MPIU_Malloc (LOCK_TRACE_LEN*sizeof(trace_elmt_t));\
+        lock_trace = (trace_elmt_t*) MPL_malloc (LOCK_TRACE_LEN*sizeof(trace_elmt_t));\
     } while (0)
 
 #define LOCK_DESTROY_ENTRY_HOOK                                         \
     do {                                                                \
         dump_lock_trace();                                              \
         fclose(lock_trace_fd);                                          \
-        MPIU_Free(lock_trace);                                          \
+        MPL_free(lock_trace);                                          \
     } while (0)
 
 #define LOCK_ACQUIRE_ENTRY_HOOK                                         \
@@ -116,7 +116,7 @@ extern int MPIDUI_lock_tracing_enabled;
 
 #define LOCK_ACQUIRE_EXIT_HOOK                                          \
     do {                                                                \
-        if (MPL_lock_tracing_enabled) {                                 \
+        if (MPIDUI_lock_tracing_enabled) {                              \
             lock_trace[lock_trace_idx].nwaiters = (int8_t) OPA_load_int(&nwaiters);\
             lock_trace[lock_trace_idx].holder = my_core;                \
         }                                                               \
@@ -132,7 +132,7 @@ extern int MPIDUI_lock_tracing_enabled;
 
 #define LOCK_ACQUIRE_L_EXIT_HOOK                                        \
     do {                                                                \
-        if (MPL_lock_tracing_enabled) {                                 \
+        if (MPIDUI_lock_tracing_enabled) {                                 \
             lock_trace[lock_trace_idx].nwaiters = (int8_t) OPA_load_int(&nwaiters);\
             lock_trace[lock_trace_idx].holder = my_core;                \
         }                                                               \
@@ -144,7 +144,7 @@ extern int MPIDUI_lock_tracing_enabled;
 
 #define LOCK_RELEASE_ENTRY_HOOK                                         \
     do {                                                                \
-        if (MPL_lock_tracing_enabled) {                                 \
+        if (MPIDUI_lock_tracing_enabled) {                                 \
             lock_trace[lock_trace_idx].progress = made_some_progress;   \
             lock_trace_idx++;                                           \
         }                                                               \
