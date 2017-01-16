@@ -639,8 +639,6 @@ int MPID_Request_complete(MPIR_Request *req)
 
 void MPID_Request_free_hook(MPIR_Request *req)
 {
-
-    MPIR_T_PVAR_COUNTER_INC(REQUEST, tot_req_freed, 1);
     return;
 }
 
@@ -661,4 +659,6 @@ void MPID_Request_destroy_hook(MPIR_Request *req)
     if (req->dev.ext_hdr_ptr != NULL) {
         MPL_free(req->dev.ext_hdr_ptr);
     }
+
+    MPIR_T_PVAR_COUNTER_INC(REQUEST, tot_req_freed, 1);
 }
