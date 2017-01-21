@@ -407,14 +407,12 @@ static inline int64_t GetFastClockTick() {return rdtsc();}
         }
         
         inline __attribute__((always_inline)) __attribute__((flatten)) void Acquire(){
-#if 0
             if(curNode->lock == NULL && rootNode->lock == NULL) {
                 // go FP
                 tookFP = true;
                 HMCSLock<1>::Acquire(rootNode, &I);
                 return;
             }
-#endif
             switch(curDepth){
                 case 1:  HMCSLock<1>::Acquire(curNode, &I); break;
                 case 2:  HMCSLock<2>::Acquire(curNode, &I); break;
@@ -428,13 +426,11 @@ static inline int64_t GetFastClockTick() {return rdtsc();}
         
         inline __attribute__((always_inline)) __attribute__((flatten)) void Release(){
             //myRelease(curNode, I);
-#if 0
             if(tookFP) {
                 HMCSLock<1>::Release(rootNode, &I);
                 tookFP = false;
                 return;
             }
-#endif
             switch(curDepth){
                 case 1:  HMCSLock<1>::Release(curNode, &I); break;
                 case 2:  HMCSLock<2>::Release(curNode, &I); break;
@@ -446,6 +442,10 @@ static inline int64_t GetFastClockTick() {return rdtsc();}
         }
 
         inline __attribute__((always_inline)) __attribute__((flatten)) bool NoWaiters(){
+            if(tookFP) {
+                return HMCSLock<1>::NoWaiters(curNode, &I);
+            }
+
             switch(curDepth){
                 case 1:  return HMCSLock<1>::NoWaiters(curNode, &I);
                 case 2:  return HMCSLock<2>::NoWaiters(curNode, &I);
@@ -463,11 +463,14 @@ static inline int64_t GetFastClockTick() {return rdtsc();}
 
 #define IT_MACHINE
 //#define THING_MACHINE
+//#define LAPTOP_MACHINE
 
 #if defined(IT_MACHINE)
     static int threadMappings[] = {0, 44, 1, 45, 2, 46, 3, 47, 4, 48, 5, 49, 6, 50, 7, 51, 8, 52, 9, 53, 10, 54, 11, 55, 12, 56, 13, 57, 14, 58, 15, 59, 16, 60, 17, 61, 18, 62, 19, 63, 20, 64, 21, 65, 22, 66, 23, 67, 24, 68, 25, 69, 26, 70, 27, 71, 28, 72, 29, 73, 30, 74, 31, 75, 32, 76, 33, 77, 34, 78, 35, 79, 36, 80, 37, 81, 38, 82, 39, 83, 40, 84, 41, 85, 42, 86, 43, 87};
 #elif defined(THING_MACHINE)
     static int threadMappings[] = {0 , 36 , 1 , 37 , 2 , 38 , 3 , 39 , 4 , 40 , 5 , 41 , 6 , 42 , 7 , 43 , 8 , 44 , 9 , 45 , 10 , 46 , 11 , 47 , 12 , 48 , 13 , 49 , 14 , 50 , 15 , 51 , 16 , 52 , 17 , 53 , 18 , 54 , 19 , 55 , 20 , 56 , 21 , 57 , 22 , 58 , 23 , 59 , 24 , 60 , 25 , 61 , 26 , 62 , 27 , 63 , 28 , 64 , 29 , 65 , 30 , 66 , 31 , 67 , 32 , 68 , 33 , 69 , 34 , 70 , 35 , 71};
+#elif defined(LAPTOP_MACHINE)
+    static int threadMappings[] = {0 , 1 , 2 , 3};
 #else
 #error "Machine topology not recognized"
 #endif
@@ -570,6 +573,10 @@ void IzemHMCSLockInit(zm_hmcs_t *handle){
     int maxThreads = 72;
     int  levels = 3;
     int  participantsAtLevel[] = {2,18,72};
+#elif defined(LAPTOP_MACHINE)
+    int maxThreads = 4;
+    int  levels = 2;
+    int  participantsAtLevel[] = {2,4};
 #endif
     *handle  = (zm_hmcs_t) new IzemHMCSLock(maxThreads, levels, participantsAtLevel);
 }
