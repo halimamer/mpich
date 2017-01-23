@@ -62,10 +62,12 @@ g * MPI_FINALIZED, MPI_GET_COUNT, MPI_GET_ELEMENTS, MPI_GRAPH_GET,
 #define LOCK_TRACE_LEN 1e5
 typedef OPA_int_t OPA_align_int_t __attribute__((aligned(64)));
 extern __thread int my_core;
+extern int lock_progress_counter;
+       int lock_progress_counter_old;
 typedef struct trace_elmt {
     int8_t nwaiters;
     int8_t holder;
-    int8_t progress; // bool
+    int8_t progress; // number of ops performed in pt2pt (creation, completion, destruction)
 } trace_elmt_t;
 extern OPA_align_int_t nwaiters;
 extern int lock_trace_idx;
@@ -82,7 +84,7 @@ extern int MPIDUI_lock_tracing_enabled;
             char filename[20];                                          \
             sprintf(filename, "%d.csv", MPIR_Process.comm_world->rank); \
             lock_trace_fd = fopen(filename, "w");                       \
-            fprintf(lock_trace_fd, "nwaiter,holder,bpgrs");             \
+            fprintf(lock_trace_fd, "nwaiter,holder,bpgrs\n");           \
         }                                                               \
         for(int i=0; i<lock_trace_idx; i++)                             \
             fprintf(lock_trace_fd, "%d,%d,%d\n",                        \
@@ -123,6 +125,7 @@ extern int MPIDUI_lock_tracing_enabled;
         /* We consider the main path always yielding progress */        \
         made_some_progress = 1;                                         \
         OPA_decr_int(&nwaiters);                                        \
+        lock_progress_counter_old = lock_progress_counter;              \
     } while (0)
 
 #define LOCK_ACQUIRE_L_ENTRY_HOOK                                       \
@@ -140,12 +143,14 @@ extern int MPIDUI_lock_tracing_enabled;
         /* is made inside the progress engine */                        \
         made_some_progress = 0;                                         \
         OPA_decr_int(&nwaiters);                                        \
+        lock_progress_counter_old = lock_progress_counter;              \
     } while (0)
 
 #define LOCK_RELEASE_ENTRY_HOOK                                         \
     do {                                                                \
+        int8_t progress = lock_progress_counter - lock_progress_counter_old;\
         if (MPIDUI_lock_tracing_enabled) {                                 \
-            lock_trace[lock_trace_idx].progress = made_some_progress;   \
+            lock_trace[lock_trace_idx].progress = progress;             \
             lock_trace_idx++;                                           \
         }                                                               \
         if(unlikely(lock_trace_idx >= LOCK_TRACE_LEN))                  \

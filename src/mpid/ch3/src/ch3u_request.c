@@ -10,6 +10,15 @@ static unsigned int PVAR_COUNTER_tot_req_created;
 static unsigned int PVAR_COUNTER_tot_req_complet;
 static unsigned int PVAR_COUNTER_tot_req_freed;
 
+#if defined(MPICH_LOCK_TRACING)
+/* even if the counter overflows, it is still fine.
+   We care about (new - old) values between lock acquisitions,
+   which should give a positive result (it does not make sense
+   to have more than 2^31 ops between two lock acquisitions)
+ */
+int lock_progress_counter;
+#endif
+
 #undef FUNCNAME
 #define FUNCNAME MPIDI_CH3U_Request_init
 #undef FCNAME
@@ -44,6 +53,11 @@ int MPIDI_CH3U_Request_init(void)
         (MPIR_T_PVAR_FLAG_READONLY | MPIR_T_PVAR_FLAG_CONTINUOUS),
         "CH3", /* category name */
         "total number of requests freed");
+
+#if defined(MPICH_LOCK_TRACING)
+    lock_progress_counter = 0;
+#endif
+
     return mpi_errno;
 }
 
@@ -104,6 +118,10 @@ void MPID_Request_create_hook(MPIR_Request *req)
     MPIDI_CH3_REQUEST_INIT(req);
 #endif
     MPIR_T_PVAR_COUNTER_INC(REQUEST, tot_req_created, 1);
+#if defined(MPICH_LOCK_TRACING)
+    lock_progress_counter++;
+#endif
+
 }
 
 
@@ -626,6 +644,9 @@ int MPID_Request_complete(MPIR_Request *req)
             MPIR_cc_decr(req->completion_notification, &notify_counter);
 
     MPIR_T_PVAR_COUNTER_INC(REQUEST, tot_req_complet, 1);
+#if defined(MPICH_LOCK_TRACING)
+    lock_progress_counter++;
+#endif
 	MPIR_Request_free(req);
 	MPIDI_CH3_Progress_signal_completion();
     }
@@ -661,4 +682,7 @@ void MPID_Request_destroy_hook(MPIR_Request *req)
     }
 
     MPIR_T_PVAR_COUNTER_INC(REQUEST, tot_req_freed, 1);
+#if defined(MPICH_LOCK_TRACING)
+    lock_progress_counter++;
+#endif
 }
