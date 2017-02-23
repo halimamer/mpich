@@ -20,7 +20,7 @@ OPA_align_int_t nwaiters;
 int lock_trace_idx        = 0;
 int8_t made_some_progress = 0;
 trace_elmt_t* lock_trace  = NULL;
-__thread int my_core      = -1;
+__thread uint8_t my_core  = UINT8_MAX;
 
 FILE* lock_trace_fd       = NULL;
 #endif

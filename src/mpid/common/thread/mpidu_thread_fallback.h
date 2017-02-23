@@ -61,13 +61,13 @@ g * MPI_FINALIZED, MPI_GET_COUNT, MPI_GET_ELEMENTS, MPI_GRAPH_GET,
 #ifdef MPICH_LOCK_TRACING
 #define LOCK_TRACE_LEN 1e5
 typedef OPA_int_t OPA_align_int_t __attribute__((aligned(64)));
-extern __thread int my_core;
+extern __thread uint8_t my_core;
 extern int lock_progress_counter;
        int lock_progress_counter_old;
 typedef struct trace_elmt {
-    int8_t nwaiters;
-    int8_t holder;
-    int8_t progress; // number of ops performed in pt2pt (creation, completion, destruction)
+    uint8_t nwaiters;
+    uint8_t holder;
+    uint16_t progress; // number of ops performed in pt2pt (creation, completion, destruction)
 } trace_elmt_t;
 extern OPA_align_int_t nwaiters;
 extern int lock_trace_idx;
@@ -111,15 +111,17 @@ extern int MPIDUI_lock_tracing_enabled;
 
 #define LOCK_ACQUIRE_ENTRY_HOOK                                         \
     do {                                                                \
-        if(unlikely(my_core < 0))                                       \
-            my_core = sched_getcpu();                                   \
+        if(unlikely(my_core == UINT8_MAX)) {                            \
+            my_core = (uint8_t)sched_getcpu();                          \
+            assert(my_core >= 0 && my_core < UINT8_MAX);                \
+        }                                                               \
         OPA_incr_int(&nwaiters);                                        \
     } while (0)
 
 #define LOCK_ACQUIRE_EXIT_HOOK                                          \
     do {                                                                \
         if (MPIDUI_lock_tracing_enabled) {                              \
-            lock_trace[lock_trace_idx].nwaiters = (int8_t) OPA_load_int(&nwaiters);\
+            lock_trace[lock_trace_idx].nwaiters = (uint8_t) OPA_load_int(&nwaiters);\
             lock_trace[lock_trace_idx].holder = my_core;                \
         }                                                               \
         /* We consider the main path always yielding progress */        \
@@ -136,7 +138,7 @@ extern int MPIDUI_lock_tracing_enabled;
 #define LOCK_ACQUIRE_L_EXIT_HOOK                                        \
     do {                                                                \
         if (MPIDUI_lock_tracing_enabled) {                                 \
-            lock_trace[lock_trace_idx].nwaiters = (int8_t) OPA_load_int(&nwaiters);\
+            lock_trace[lock_trace_idx].nwaiters = (uint8_t) OPA_load_int(&nwaiters);\
             lock_trace[lock_trace_idx].holder = my_core;                \
         }                                                               \
         /* This flag will be updated if progress */                     \
@@ -148,7 +150,7 @@ extern int MPIDUI_lock_tracing_enabled;
 
 #define LOCK_RELEASE_ENTRY_HOOK                                         \
     do {                                                                \
-        int8_t progress = lock_progress_counter - lock_progress_counter_old;\
+        uint16_t progress = lock_progress_counter - lock_progress_counter_old;\
         if (MPIDUI_lock_tracing_enabled) {                                 \
             lock_trace[lock_trace_idx].progress = progress;             \
             lock_trace_idx++;                                           \
