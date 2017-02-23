@@ -65,9 +65,15 @@ extern __thread uint8_t my_core;
 extern int lock_progress_counter;
        int lock_progress_counter_old;
 typedef struct trace_elmt {
-    uint8_t nwaiters;
-    uint8_t holder;
-    uint16_t progress; // number of ops performed in pt2pt (creation, completion, destruction)
+    union {
+        struct {
+            uint8_t nwaiters;
+            uint8_t holder;
+            uint16_t progress; // number of ops performed in pt2pt (creation, completion, destruction)
+        };
+        int32_t event;         // compact representation of the above struct (for easy comparison)
+    };
+    uint32_t count;            // count for the same event
 } trace_elmt_t;
 extern OPA_align_int_t nwaiters;
 extern int lock_trace_idx;
@@ -84,22 +90,25 @@ extern int MPIDUI_lock_tracing_enabled;
             char filename[20];                                          \
             sprintf(filename, "%d.csv", MPIR_Process.comm_world->rank); \
             lock_trace_fd = fopen(filename, "w");                       \
-            fprintf(lock_trace_fd, "nwaiter,holder,bpgrs\n");           \
+            fprintf(lock_trace_fd, "nwaiter,holder,bpgrs,count\n");     \
         }                                                               \
-        for(int i=0; i<lock_trace_idx; i++)                             \
-            fprintf(lock_trace_fd, "%d,%d,%d\n",                        \
+        for(int i=1; i<lock_trace_idx; i++)                             \
+            fprintf(lock_trace_fd, "%d,%d,%d,%d\n",                     \
                                     lock_trace[i].nwaiters,             \
                                     lock_trace[i].holder,               \
-                                    lock_trace[i].progress);            \
+                                    lock_trace[i].progress,             \
+                                    lock_trace[i].count);               \
         memset(lock_trace, 0, LOCK_TRACE_LEN*sizeof(trace_elmt_t));     \
         lock_trace_idx = 0;                                             \
     } while (0)
 
 #define LOCK_CREATE_ENTRY_HOOK                                          \
     do {                                                                \
-        lock_trace_idx = 0;                                             \
+        lock_trace_idx = 1;                                             \
         OPA_store_int(&nwaiters, 0);                                    \
         lock_trace = (trace_elmt_t*) MPL_malloc (LOCK_TRACE_LEN*sizeof(trace_elmt_t));\
+        lock_trace[0].event = UINT32_MAX;                               \
+        lock_trace[0].count = UINT32_MAX;                               \
     } while (0)
 
 #define LOCK_DESTROY_ENTRY_HOOK                                         \
@@ -153,7 +162,12 @@ extern int MPIDUI_lock_tracing_enabled;
         uint16_t progress = lock_progress_counter - lock_progress_counter_old;\
         if (MPIDUI_lock_tracing_enabled) {                                 \
             lock_trace[lock_trace_idx].progress = progress;             \
-            lock_trace_idx++;                                           \
+            if(lock_trace[lock_trace_idx].event == lock_trace[lock_trace_idx - 1].event)\
+                lock_trace[lock_trace_idx - 1].count++;                 \
+            else {                                                      \
+                lock_trace[lock_trace_idx].count = 1;                   \
+                lock_trace_idx++;                                       \
+            }                                                           \
         }                                                               \
         if(unlikely(lock_trace_idx >= LOCK_TRACE_LEN))                  \
             dump_lock_trace();                                          \
