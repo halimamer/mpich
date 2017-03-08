@@ -140,6 +140,8 @@ static inline int MPIDI_choose_netmod(void)
 #error "Thread Granularity:  Invalid"
 #endif
 
+MPL_STATIC_INLINE_PREFIX void MPIDI_progress_thread_fn(void *data);
+
 MPL_STATIC_INLINE_PREFIX const char *MPIDI_get_mt_model_name(int mt)
 {
     if (mt < 0 || mt >= MPIDI_CH4_NUM_MT_MODELS)
@@ -189,6 +191,8 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_set_runtime_configurations(void)
 fn_fail:
     return mpi_errno;
 }
+
+MPL_STATIC_INLINE_PREFIX void MPIDI_progress_thread_fn(void *data);
 
 #undef FUNCNAME
 #define FUNCNAME MPID_Init
@@ -408,9 +412,6 @@ MPL_STATIC_INLINE_PREFIX int MPID_Init(int *argc,
             MPIDI_workq_init(&MPIDI_CH4_Global.workqueues.pvni[i]);
     }
 
-    MPID_Progress_register(MPIDI_workq_global_progress, &MPIDI_CH4_Global.progress_hook_id);
-    MPID_Progress_activate(MPIDI_CH4_Global.progress_hook_id);
-
     MPIR_Process.attrs.appnum = appnum;
     MPIR_Process.attrs.wtime_is_global = 1;
     MPIR_Process.attrs.io = MPI_ANY_SOURCE;
@@ -433,9 +434,33 @@ MPL_STATIC_INLINE_PREFIX int MPID_Init(int *argc,
         break;
     }
 
+    MPIDI_CH4_Global.progress_hook_id = -1;
+    if (MPIDI_CH4_MT_MODEL == MPIDI_CH4_MT_TRYLOCK) {
+        /* Activate the progress hook to drain work queue in trylock-enqueue mode.
+           In the handoff mode, MPID progress function does not have to process work queue
+           because the progress thread will do it. */
+        mpi_errno = MPID_Progress_register(MPIDI_workq_global_progress, &MPIDI_CH4_Global.progress_hook_id);
+        if (mpi_errno != MPI_SUCCESS)
+            MPIR_ERR_POPFATAL(mpi_errno);
+        MPID_Progress_activate(MPIDI_CH4_Global.progress_hook_id);
+    }
+
     *has_args = TRUE;
     *has_env = TRUE;
     MPIDI_CH4_Global.is_initialized = 0;
+
+    if (MPIDI_CH4_MT_MODEL == MPIDI_CH4_MT_HANDOFF && *provided >= MPI_THREAD_MULTIPLE) {
+        OPA_store_int(&MPIDI_CH4_Global.n_active_progress_threads, 0);
+        OPA_store_int(&MPIDI_CH4_Global.progress_thread_exit_signal, 0);
+        for (i = 0; i < MPIDI_CH4_Global.n_netmod_vnis; i++) {
+            int *thr_param = MPL_malloc(sizeof(int));
+            *thr_param = i;
+            /* Pass ownership of the parameter object to the thread */
+            MPID_Thread_create((MPID_Thread_func_t) MPIDI_progress_thread_fn, thr_param, &MPIDI_CH4_Global.progress_thread_ids[i], &thr_err);
+            MPIR_ERR_CHKANDJUMP1(thr_err, mpi_errno, MPI_ERR_OTHER, "**thread_create", "**thread_create %s", strerror(thr_err));
+        }
+        while (OPA_load_int(&MPIDI_CH4_Global.n_active_progress_threads) < MPIDI_CH4_Global.n_netmod_vnis);
+    }
 
   fn_exit:
     MPIR_FUNC_VERBOSE_EXIT(MPID_STATE_MPID_INIT);
@@ -464,8 +489,18 @@ MPL_STATIC_INLINE_PREFIX int MPID_InitCompleted(void)
 MPL_STATIC_INLINE_PREFIX int MPID_Finalize(void)
 {
     int mpi_errno, thr_err;
+    int i;
     MPIR_FUNC_VERBOSE_STATE_DECL(MPID_STATE_MPID_FINALIZE);
     MPIR_FUNC_VERBOSE_ENTER(MPID_STATE_MPID_FINALIZE);
+
+    if (MPIDI_CH4_MT_MODEL == MPIDI_CH4_MT_HANDOFF && MPIR_ThreadInfo.isThreaded) {
+        /* Shutdown the progress threads */
+        OPA_store_int(&MPIDI_CH4_Global.progress_thread_exit_signal, 1);
+        while (OPA_load_int(&MPIDI_CH4_Global.n_active_progress_threads) > 0);
+        /* netmod may call MPID comunications during its finize_hook */
+        MPID_Progress_register(MPIDI_workq_global_progress, &MPIDI_CH4_Global.progress_hook_id);
+        MPID_Progress_activate(MPIDI_CH4_Global.progress_hook_id);
+    }
 
     mpi_errno = MPIDI_NM_mpi_finalize_hook();
     if (mpi_errno)
@@ -476,7 +511,6 @@ MPL_STATIC_INLINE_PREFIX int MPID_Finalize(void)
         MPIR_ERR_POP(mpi_errno);
 #endif
 
-    int i;
     int max_n_avts;
     max_n_avts = MPIDIU_get_max_n_avts();
     for (i = 0; i < max_n_avts; i++) {
@@ -499,8 +533,10 @@ MPL_STATIC_INLINE_PREFIX int MPID_Finalize(void)
 
     MPL_free(MPIDI_CH4_Global.vni_locks);
 
-    MPID_Progress_deactivate(MPIDI_CH4_Global.progress_hook_id);
-    MPID_Progress_deregister(MPIDI_CH4_Global.progress_hook_id);
+    if (MPIDI_CH4_Global.progress_hook_id >= 0) {
+        MPID_Progress_deactivate(MPIDI_CH4_Global.progress_hook_id);
+        MPID_Progress_deregister(MPIDI_CH4_Global.progress_hook_id);
+    }
 
     MPID_Thread_mutex_destroy(&MPIDI_CH4I_THREAD_PROGRESS_MUTEX, &thr_err);
     MPID_Thread_mutex_destroy(&MPIDI_CH4I_THREAD_PROGRESS_HOOK_MUTEX, &thr_err);
