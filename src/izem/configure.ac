@@ -141,9 +141,14 @@ AC_TRY_LINK(
   [], [#include <stdatomic.h>
        atomic_char l;
        atomic_long v;
+       atomic_intptr_t p;
        atomic_flag_test_and_set_explicit(&l, memory_order_relaxed);
        atomic_store_explicit(&v, 1, memory_order_release);
-       atomic_load_explicit(&v, memory_order_acquire);],
+       atomic_load_explicit(&v, memory_order_acquire);
+       atomic_store_explicit(&p, NULL, memory_order_release);
+       intptr_t q = NULL;
+       atomic_compare_exchange_weak_explicit(&p, &q, &l, memory_order_acq_rel, memory_order_acquire);
+],
   [have_c11_atomics=yes],
 )
 if test "x$have_c11_atomics" = "xyes"; then
@@ -162,6 +167,52 @@ fi
 ZM_MEMORY_MODEL=ZM_MEMORY_MODEL_$memory_model
 AC_SUBST(ZM_MEMORY_MODEL)
 
+# Default lock interface
+
+AC_ARG_WITH([lock_if],
+[  --with-lock-if@<:@=LOCK_IF@:>@   define the default lock interface being
+                          exposed by Izem (i.e., zm_lock_t and associated
+                          routines. LOCK_IF represents the name of the
+                          underlying lock to be used. Possible values are:
+                          tkt  - Ticket
+                          mcs  - MCS
+                          mmcs - Memorizing MCS. It memorizes the local
+                                 context of the lock holder. It allows
+                                 reacquiring and releasing the lock without
+                                 bringing a local context. It is useful for
+                                 lock passing in nested scopes (e.g., MPICH)
+                          hmcs - Multilevel Hierarchical MCS (HMCS)
+                          tlp  - Generic Two-Level Priority
+                          mcsp - Two-Level MCS lock
+],,
+[with_lock_if=tkt])
+
+case "$with_lock_if" in
+    tkt)
+        ZM_LOCK_IF=ZM_TICKET_IF
+    ;;
+    mcs)
+        ZM_LOCK_IF=ZM_MCS_IF
+    ;;
+    mmcs)
+        ZM_LOCK_IF=ZM_MMCS_IF
+    ;;
+    hmcs)
+        ZM_LOCK_IF=ZM_HMCS_IF
+    ;;
+    tlp)
+        ZM_LOCK_IF=ZM_TLP_IF
+    ;;
+    mcsp)
+        ZM_LOCK_IF=ZM_MCSP_IF
+    ;;
+    *)
+        AC_MSG_WARN([Unknown value $with_lock_if for with-lock-if])
+    ;;
+esac
+
+AC_SUBST(ZM_LOCK_IF)
+
 # TLP lock components
 AC_ARG_WITH([tlp_locks],
 [  --with-tlp-locks@<:@=HIGH-LOW@:>@   define the high and low priority locks
@@ -172,6 +223,8 @@ AC_ARG_WITH([tlp_locks],
                           mcs-mcs  - both are mcs locks
                           tkt-mcs  - HIGH is ticket LOW is MCS
                           mcs-tkt  - HIGH is MCS LOW is ticket
+                          hmcs-hmcs  - both are HMCS locks
+                          hmcs-mcs   - HIGH is HMCS and LOW is MCS
 ],,
 [with_tlp_locks=tkt-tkt])
 
@@ -191,6 +244,15 @@ case "$with_tlp_locks" in
     mcs-tkt)
         ZM_TLP_HIGH_P=ZM_MCS
         ZM_TLP_LOW_P=ZM_TICKET
+    ;;
+    hmcs-hmcs)
+        ZM_TLP_HIGH_P=ZM_HMCS
+        ZM_TLP_LOW_P=ZM_HMCS
+    ;;
+    hmcs-mcs)
+        ZM_TLP_HIGH_P=ZM_HMCS
+        ZM_TLP_LOW_P=ZM_MCS
+
     ;;
     *)
         AC_MSG_WARN([Unknown value $with_tlp_locks for with-tlp-locks])
@@ -233,6 +295,7 @@ AC_CONFIG_FILES([Makefile
                  maint/izem.pc
                  src/Makefile
                  src/include/common/zm_common.h
+                 src/include/lock/zm_lock.h
                  src/include/lock/zm_lock_types.h
                  test/Makefile
                  test/regres/Makefile
