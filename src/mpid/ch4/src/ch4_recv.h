@@ -271,16 +271,16 @@ MPL_STATIC_INLINE_PREFIX int MPID_Irecv(void *buf,
     MPIR_FUNC_VERBOSE_STATE_DECL(MPID_STATE_MPID_IRECV);
     MPIR_FUNC_VERBOSE_ENTER(MPID_STATE_MPID_IRECV);
 
-    if (unlikely(rank == MPI_PROC_NULL)) {
-        MPIR_Request *rreq = MPIR_Request_create(MPIR_REQUEST_KIND__RECV);
-        *request = rreq;
-        MPIR_Request_add_ref(rreq);
-        rreq->status.MPI_SOURCE = rank;
-        rreq->status.MPI_TAG = tag;
-        MPIDI_CH4U_request_complete(rreq);
-        mpi_errno = MPI_SUCCESS;
-        goto fn_exit;
-    }
+//    if (unlikely(rank == MPI_PROC_NULL)) {
+//        MPIR_Request *rreq = MPIR_Request_create(MPIR_REQUEST_KIND__RECV);
+//        *request = rreq;
+//        MPIR_Request_add_ref(rreq);
+//        rreq->status.MPI_SOURCE = rank;
+//        rreq->status.MPI_TAG = tag;
+//        MPIDI_CH4U_request_complete(rreq);
+//        mpi_errno = MPI_SUCCESS;
+//        goto fn_exit;
+//    }
 
 #ifndef MPIDI_CH4_EXCLUSIVE_SHM
     mpi_errno = MPIDI_NM_mpi_irecv(buf, count, datatype, rank, tag, comm, context_offset, request);
