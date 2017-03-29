@@ -8,6 +8,8 @@
 # nodist_ b/c these are created by config.status and should not be distributed
 nodist_include_HEADERS += src/include/mpi.h
 
+include_HEADERS += src/include/proxympi.h
+
 ## Internal headers that are created by config.status from a corresponding
 ## ".h.in" file.  This ensures that these files are _not_ distributed, which is
 ## important because they contain lots of info that is computed by configure.
