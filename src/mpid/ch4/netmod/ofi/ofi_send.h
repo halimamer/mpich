@@ -12,7 +12,7 @@
 #define OFI_SEND_H_INCLUDED
 
 #include "ofi_impl.h"
-#include <../mpi/pt2pt/bsendutil.h>
+#include <bsendutil.h>
 
 #define MPIDI_OFI_SENDPARAMS const void *buf,int count,MPI_Datatype datatype, \
     int rank,int tag,MPIR_Comm *comm,                               \

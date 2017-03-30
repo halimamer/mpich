@@ -53,5 +53,7 @@ mpi_core_sources += \
     src/mpi/pt2pt/bsendutil.c     \
     src/mpi/pt2pt/mpir_request.c
 
-noinst_HEADERS += src/mpi/pt2pt/bsendutil.h
+AM_CPPFLAGS += -I$(top_srcdir)/src/mpi/pt2pt
+
+include_HEADERS += src/mpi/pt2pt/bsendutil.h
 

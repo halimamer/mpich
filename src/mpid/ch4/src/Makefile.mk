@@ -12,19 +12,20 @@
 
 AM_CPPFLAGS += -I$(top_srcdir)/src/mpid/ch4/src
 
-noinst_HEADERS += src/mpid/ch4/src/ch4_comm.h     \
+include_HEADERS += src/mpid/ch4/src/ch4_send.h     \
+                   src/mpid/ch4/src/ch4_recv.h \
+		  src/mpid/ch4/src/ch4_comm.h     \
                   src/mpid/ch4/src/ch4_init.h     \
                   src/mpid/ch4/src/ch4_progress.h \
                   src/mpid/ch4/src/ch4_request.h  \
-                  src/mpid/ch4/src/ch4_send.h     \
                   src/mpid/ch4/src/ch4_types.h    \
                   src/mpid/ch4/src/ch4_impl.h     \
                   src/mpid/ch4/src/ch4_probe.h    \
                   src/mpid/ch4/src/ch4_proc.h     \
-                  src/mpid/ch4/src/ch4_recv.h     \
                   src/mpid/ch4/src/ch4_rma.h      \
                   src/mpid/ch4/src/ch4_spawn.h    \
                   src/mpid/ch4/src/ch4_win.h      \
+                  src/mpid/ch4/src/ch4_coll.h      \
                   src/mpid/ch4/src/ch4r_probe.h   \
                   src/mpid/ch4/src/ch4r_rma.h     \
                   src/mpid/ch4/src/ch4r_win.h     \
@@ -36,6 +37,9 @@ noinst_HEADERS += src/mpid/ch4/src/ch4_comm.h     \
                   src/mpid/ch4/src/ch4i_util.h 	  \
                   src/mpid/ch4/src/ch4r_symheap.h \
                   src/mpid/ch4/src/ch4r_buf.h     \
+		  src/mpid/ch4/src/ch4r_callbacks.h\
+		  src/mpid/ch4/src/ch4r_rma_origin_callbacks.h\
+		  src/mpid/ch4/src/ch4r_rma_target_callbacks.h\
                   src/mpid/ch4/src/ch4r_request.h
 
 mpi_core_sources += src/mpid/ch4/src/ch4_globals.c        \
