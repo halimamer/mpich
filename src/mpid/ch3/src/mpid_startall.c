@@ -8,7 +8,7 @@
 /* FIXME: This bsend header shouldn't be needed (the function prototype
    should be in mpiimpl.h), to allow a devices MPID_Startall to use the
    MPIR_Bsend_isend function */
-#include "../../../mpi/pt2pt/bsendutil.h"
+#include "bsendutil.h"
 
 /* FIXME: Consider using function pointers for invoking persistent requests;
    if we made those part of the public request structure, the top-level routine

@@ -13,7 +13,7 @@
 
 #include "posix_impl.h"
 #include "ch4_impl.h"
-#include <../mpi/pt2pt/bsendutil.h>
+#include <bsendutil.h>
 /* ---------------------------------------------------- */
 /* from mpid/ch3/channels/nemesis/include/mpid_nem_impl.h */
 /* ---------------------------------------------------- */

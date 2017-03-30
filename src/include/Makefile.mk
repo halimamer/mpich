@@ -6,7 +6,8 @@
 ##
 
 # nodist_ b/c these are created by config.status and should not be distributed
-nodist_include_HEADERS += src/include/mpi.h
+nodist_include_HEADERS += src/include/mpi.h \
+    			  src/include/mpichconf.h
 
 include_HEADERS += src/include/proxympi.h
 
@@ -14,8 +15,7 @@ include_HEADERS += src/include/proxympi.h
 ## ".h.in" file.  This ensures that these files are _not_ distributed, which is
 ## important because they contain lots of info that is computed by configure.
 nodist_noinst_HEADERS +=     \
-    src/include/mpichinfo.h \
-    src/include/mpichconf.h
+    src/include/mpichinfo.h
 
 ## listed here in BUILT_SOURCES to ensure that if mpir_ext.h is out of date
 ## that it will be rebuilt before make recurses into src/mpi/romio and runs
@@ -23,9 +23,8 @@ nodist_noinst_HEADERS +=     \
 ## dependencies, but that's not true for SUBDIRS packages
 BUILT_SOURCES += src/include/mpir_ext.h
 
-noinst_HEADERS +=                   \
+include_HEADERS +=                   \
     src/include/bsocket.h           \
-    src/include/mpir_refcount.h     \
     src/include/mpir_refcount_global.h \
     src/include/mpir_refcount_pobj.h \
     src/include/mpir_refcount_single.h \
@@ -44,6 +43,7 @@ noinst_HEADERS +=                   \
     src/include/mpir_cvars.h        \
     src/include/mpichconfconst.h    \
     src/include/mpir_err.h          \
+    src/include/mpir_strerror.h\
     src/include/mpir_ext.h            \
     src/include/mpir_func.h         \
     src/include/mpir_coll.h         \
@@ -75,6 +75,9 @@ noinst_HEADERS +=                   \
     src/include/pmi2.h              \
     src/include/rlog.h              \
     src/include/rlog_macros.h       \
+    src/include/mpit.h\
+    src/include/mpitimpl.h\
+    src/include/mpir_handlemem.h\
     src/include/mpir_op_util.h
 
 src/include/mpir_cvars.h:

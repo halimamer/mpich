@@ -13,7 +13,7 @@
 #define MPIDIG_SEND_H_INCLUDED
 
 #include "ch4_impl.h"
-#include <../mpi/pt2pt/bsendutil.h>
+#include <bsendutil.h>
 
 #undef FUNCNAME
 #define FUNCNAME MPIDI_am_isend

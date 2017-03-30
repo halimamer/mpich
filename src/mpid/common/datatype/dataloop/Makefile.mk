@@ -24,9 +24,9 @@ mpi_core_sources +=                                    \
     src/mpid/common/datatype/dataloop/subarray_support.c
 
 # several headers are included by the rest of MPICH
-AM_CPPFLAGS += -I$(top_srcdir)/src/mpid/common/datatype
+AM_CPPFLAGS += -I$(top_srcdir)/src/mpid/common/datatype/dataloop
 
-noinst_HEADERS +=                                        \
+include_HEADERS +=                                        \
     src/mpid/common/datatype/dataloop/dataloop.h         \
     src/mpid/common/datatype/dataloop/dataloop_parts.h   \
     src/mpid/common/datatype/dataloop/dataloop_create.h  \
