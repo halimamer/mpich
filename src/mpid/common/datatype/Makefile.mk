@@ -34,7 +34,7 @@ mpi_core_sources +=                          \
 # there are no AC_OUTPUT_FILES headers, so builddir is unnecessary
 AM_CPPFLAGS += -I$(top_srcdir)/src/mpid/common/datatype
 
-noinst_HEADERS +=                                 \
+include_HEADERS +=                                 \
     src/mpid/common/datatype/mpidu_dataloop.h      \
     src/mpid/common/datatype/mpidu_datatype.h      \
     src/mpid/common/datatype/mpidu_ext32_segment.h \
