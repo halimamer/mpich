@@ -337,20 +337,12 @@ MPL_STATIC_INLINE_PREFIX bool MPIDI_OFI_is_tag_sync(uint64_t match_bits)
     return (0 != (MPIDI_OFI_SYNC_SEND & match_bits));
 }
 
+#define OFI_CONSTANT_TAG 1986
+
 MPL_STATIC_INLINE_PREFIX uint64_t MPIDI_OFI_init_sendtag(MPIR_Context_id_t contextid,
                                                   int source, int tag, uint64_t type)
 {
-    uint64_t match_bits;
-    match_bits = contextid;
-
-    if (!MPIDI_OFI_ENABLE_DATA) {
-        match_bits = (match_bits << MPIDI_OFI_SOURCE_BITS);
-        match_bits |= source;
-    }
-
-    match_bits = (match_bits << MPIDI_OFI_TAG_BITS);
-    match_bits |= (MPIDI_OFI_TAG_MASK & tag) | type;
-    return match_bits;
+    return OFI_CONSTANT_TAG;
 }
 
 /* receive posting */
@@ -358,32 +350,7 @@ MPL_STATIC_INLINE_PREFIX uint64_t MPIDI_OFI_init_recvtag(uint64_t * mask_bits,
                                                   MPIR_Context_id_t contextid,
                                                   int source, int tag)
 {
-    uint64_t match_bits = 0;
-    *mask_bits = MPIDI_OFI_PROTOCOL_MASK;
-    match_bits = contextid;
-
-    if (!MPIDI_OFI_ENABLE_DATA) {
-        match_bits = (match_bits << MPIDI_OFI_SOURCE_BITS);
-
-        if (MPI_ANY_SOURCE == source) {
-            match_bits = (match_bits << MPIDI_OFI_TAG_BITS);
-            *mask_bits |= MPIDI_OFI_SOURCE_MASK;
-        }
-        else {
-            match_bits |= source;
-            match_bits = (match_bits << MPIDI_OFI_TAG_BITS);
-        }
-    }
-    else {
-        match_bits = (match_bits << MPIDI_OFI_TAG_BITS);
-    }
-
-    if (MPI_ANY_TAG == tag)
-        *mask_bits |= MPIDI_OFI_TAG_MASK;
-    else
-        match_bits |= (MPIDI_OFI_TAG_MASK & tag);
-
-    return match_bits;
+    return OFI_CONSTANT_TAG;
 }
 
 MPL_STATIC_INLINE_PREFIX int MPIDI_OFI_init_get_tag(uint64_t match_bits)
