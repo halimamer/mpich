@@ -104,6 +104,95 @@ MPL_STATIC_INLINE_PREFIX int MPID_Recv(void *buf,
 }
 
 #undef FUNCNAME
+#define FUNCNAME MPID_Recv_byte
+#undef FCNAME
+#define FCNAME MPL_QUOTE(FUNCNAME)
+MPL_STATIC_INLINE_PREFIX int MPID_Recv_byte(void *buf,
+                                        int count,
+                                        int rank,
+                                        int tag,
+                                        MPIR_Comm * comm,
+                                        int context_offset, MPI_Status * status,
+                                        MPIR_Request ** request)
+{
+    int mpi_errno;
+    MPIR_FUNC_VERBOSE_STATE_DECL(MPID_STATE_MPID_RECV_BYTE);
+    MPIR_FUNC_VERBOSE_ENTER(MPID_STATE_MPID_RECV_BYTE);
+
+    if (unlikely(rank == MPI_PROC_NULL)) {
+        MPIR_Request *rreq = MPIR_Request_create(MPIR_REQUEST_KIND__RECV);
+        *request = rreq;
+        MPIR_Request_add_ref(rreq);
+        rreq->status.MPI_SOURCE = rank;
+        rreq->status.MPI_TAG = tag;
+        MPIDI_CH4U_request_complete(rreq);
+        mpi_errno = MPI_SUCCESS;
+        goto fn_exit;
+    }
+
+#ifndef MPIDI_CH4_EXCLUSIVE_SHM
+    mpi_errno =
+        MPIDI_NM_mpi_recv_byte(buf, count, rank, tag, comm, context_offset, status, request);
+#else
+    if (unlikely(rank == MPI_ANY_SOURCE)) {
+        mpi_errno =
+            MPIDI_SHM_mpi_irecv(buf, count, MPI_DATATYPE_NULL, rank, tag, comm, context_offset, request);
+
+        if (mpi_errno != MPI_SUCCESS) {
+            MPIR_ERR_POP(mpi_errno);
+        }
+
+        mpi_errno = MPIDI_NM_mpi_irecv_byte(buf, count, rank, tag, comm, context_offset,
+                                       &(MPIDI_CH4I_REQUEST_ANYSOURCE_PARTNER(*request)));
+
+        if (mpi_errno != MPI_SUCCESS) {
+            MPIR_ERR_POP(mpi_errno);
+        }
+        /* cancel the shm request if netmod/am handles the request from unexpected queue. */
+        else if (*request) {
+            if (MPIR_Request_is_complete(MPIDI_CH4I_REQUEST_ANYSOURCE_PARTNER(*request))) {
+                mpi_errno = MPIDI_SHM_mpi_cancel_recv(*request);
+                if (MPIR_STATUS_GET_CANCEL_BIT((*request)->status)) {
+                    (*request)->status = MPIDI_CH4I_REQUEST_ANYSOURCE_PARTNER(*request)->status;
+                }
+                MPIR_Request_free(MPIDI_CH4I_REQUEST_ANYSOURCE_PARTNER(*request));
+                goto fn_exit;
+            }
+            MPIDI_CH4I_REQUEST(*request, is_local) = 1;
+            MPIDI_CH4I_REQUEST(MPIDI_CH4I_REQUEST_ANYSOURCE_PARTNER(*request), is_local) = 0;
+        }
+
+        MPIDI_CH4I_REQUEST_ANYSOURCE_PARTNER(MPIDI_CH4I_REQUEST_ANYSOURCE_PARTNER(*request)) =
+            *request;
+    }
+    else {
+        int r;
+        if ((r = MPIDI_CH4_rank_is_local(rank, comm)))
+            mpi_errno =
+                MPIDI_SHM_mpi_recv(buf, count, MPI_DATATYPE_NULL, rank, tag, comm, context_offset, status,
+                                   request);
+        else
+            mpi_errno =
+                MPIDI_NM_mpi_recv_byte(buf, count, rank, tag, comm, context_offset, status,
+                                  request);
+        if (mpi_errno == MPI_SUCCESS && *request) {
+            MPIDI_CH4I_REQUEST(*request, is_local) = r;
+            MPIDI_CH4I_REQUEST_ANYSOURCE_PARTNER(*request) = NULL;
+        }
+    }
+#endif
+
+    if (mpi_errno != MPI_SUCCESS) {
+        MPIR_ERR_POP(mpi_errno);
+    }
+  fn_exit:
+    MPIR_FUNC_VERBOSE_EXIT(MPID_STATE_MPID_RECV);
+    return mpi_errno;
+  fn_fail:
+    goto fn_exit;
+}
+
+#undef FUNCNAME
 #define FUNCNAME MPID_Recv_init
 #undef FCNAME
 #define FCNAME MPL_QUOTE(FUNCNAME)
@@ -326,6 +415,81 @@ MPL_STATIC_INLINE_PREFIX int MPID_Irecv(void *buf,
     }
   fn_exit:
     MPIR_FUNC_VERBOSE_EXIT(MPID_STATE_MPID_IRECV);
+    return mpi_errno;
+  fn_fail:
+    goto fn_exit;
+}
+
+#undef FUNCNAME
+#define FUNCNAME MPID_Irecv_byte
+#undef FCNAME
+#define FCNAME MPL_QUOTE(FUNCNAME)
+MPL_STATIC_INLINE_PREFIX int MPID_Irecv_byte(void *buf,
+                                         int count,
+                                         int rank,
+                                         int tag,
+                                         MPIR_Comm * comm, int context_offset,
+                                         MPIR_Request ** request)
+{
+    int mpi_errno;
+    MPIR_FUNC_VERBOSE_STATE_DECL(MPID_STATE_MPID_IRECV_BYTE);
+    MPIR_FUNC_VERBOSE_ENTER(MPID_STATE_MPID_IRECV_BYTE);
+
+    if (unlikely(rank == MPI_PROC_NULL)) {
+        MPIR_Request *rreq = MPIR_Request_create(MPIR_REQUEST_KIND__RECV);
+        *request = rreq;
+        MPIR_Request_add_ref(rreq);
+        rreq->status.MPI_SOURCE = rank;
+        rreq->status.MPI_TAG = tag;
+        MPIDI_CH4U_request_complete(rreq);
+        mpi_errno = MPI_SUCCESS;
+        goto fn_exit;
+    }
+
+#ifndef MPIDI_CH4_EXCLUSIVE_SHM
+    mpi_errno = MPIDI_NM_mpi_irecv_byte(buf, count, rank, tag, comm, context_offset, request);
+#else
+    if (unlikely(rank == MPI_ANY_SOURCE)) {
+        mpi_errno =
+            MPIDI_SHM_mpi_irecv(buf, count, MPI_DATATYPE_NULL, rank, tag, comm, context_offset, request);
+
+        if (mpi_errno != MPI_SUCCESS) {
+            MPIR_ERR_POP(mpi_errno);
+        }
+
+        mpi_errno = MPIDI_NM_mpi_irecv_byte(buf, count, rank, tag, comm, context_offset,
+                                       &(MPIDI_CH4I_REQUEST_ANYSOURCE_PARTNER(*request)));
+
+        if (mpi_errno != MPI_SUCCESS) {
+            MPIR_ERR_POP(mpi_errno);
+        }
+        else if (*request) {
+            MPIDI_CH4I_REQUEST(*request, is_local) = 1;
+            MPIDI_CH4I_REQUEST(MPIDI_CH4I_REQUEST_ANYSOURCE_PARTNER(*request), is_local) = 0;
+        }
+
+        MPIDI_CH4I_REQUEST_ANYSOURCE_PARTNER(MPIDI_CH4I_REQUEST_ANYSOURCE_PARTNER(*request)) =
+            *request;
+    }
+    else {
+        int r;
+        if ((r = MPIDI_CH4_rank_is_local(rank, comm)))
+            mpi_errno =
+                MPIDI_SHM_mpi_irecv(buf, count, MPI_DATATYPE_NULL, rank, tag, comm, context_offset, request);
+        else
+            mpi_errno =
+                MPIDI_NM_mpi_irecv_byte(buf, count, rank, tag, comm, context_offset, request);
+        if (mpi_errno == MPI_SUCCESS && *request) {
+            MPIDI_CH4I_REQUEST(*request, is_local) = r;
+            MPIDI_CH4I_REQUEST_ANYSOURCE_PARTNER(*request) = NULL;
+        }
+    }
+#endif
+    if (mpi_errno != MPI_SUCCESS) {
+        MPIR_ERR_POP(mpi_errno);
+    }
+  fn_exit:
+    MPIR_FUNC_VERBOSE_EXIT(MPID_STATE_MPID_IRECV_BYTE);
     return mpi_errno;
   fn_fail:
     goto fn_exit;
