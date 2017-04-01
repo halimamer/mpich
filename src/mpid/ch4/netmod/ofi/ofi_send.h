@@ -21,6 +21,13 @@
 #define MPIDI_OFI_SENDARGS buf,count,datatype,rank,tag, \
                  comm,context_offset,request
 
+#define MPIDI_OFI_SENDPARAMS_NOREQ const void *buf,int count,MPI_Datatype datatype, \
+    int rank,int tag,MPIR_Comm *comm,                               \
+    int context_offset
+
+#define MPIDI_OFI_SENDARGS_NOREQ buf,count,datatype,rank,tag, \
+                 comm,context_offset
+
 #undef FUNCNAME
 #define FUNCNAME MPIDI_OFI_send_lightweight
 #undef FCNAME
@@ -276,6 +283,32 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_OFI_send(MPIDI_OFI_SENDPARAMS, int noreq, uin
 }
 
 #undef FUNCNAME
+#define FUNCNAME MPIDI_OFI_send_noreq
+#undef FCNAME
+#define FCNAME MPL_QUOTE(FUNCNAME)
+MPL_STATIC_INLINE_PREFIX int MPIDI_OFI_send_noreq(MPIDI_OFI_SENDPARAMS_NOREQ, uint64_t syncflag)
+{
+    int dt_contig, mpi_errno;
+    size_t data_sz;
+    MPI_Aint dt_true_lb;
+    MPIR_Datatype *dt_ptr;
+
+    MPIR_FUNC_VERBOSE_STATE_DECL(MPID_STATE_MPIDI_OFI_SEND);
+    MPIR_FUNC_VERBOSE_ENTER(MPID_STATE_MPIDI_OFI_SEND);
+
+    MPIDI_Datatype_get_info(count, datatype, dt_contig, data_sz, dt_ptr, dt_true_lb);
+
+    if (likely(!syncflag && dt_contig && (data_sz <= MPIDI_Global.max_buffered_send)))
+        mpi_errno = MPIDI_OFI_send_lightweight((char *) buf + dt_true_lb, data_sz,
+                                                   rank, tag, comm, context_offset);
+    else
+        abort();
+
+    MPIR_FUNC_VERBOSE_EXIT(MPID_STATE_MPIDI_OFI_SEND);
+    return mpi_errno;
+}
+
+#undef FUNCNAME
 #define FUNCNAME MPIDI_OFI_persistent_send
 #undef FCNAME
 #define FCNAME MPL_QUOTE(FUNCNAME)
@@ -386,6 +419,28 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_NM_mpi_isend(MPIDI_OFI_SENDPARAMS)
     }
 
     mpi_errno = MPIDI_OFI_send(MPIDI_OFI_SENDARGS, 0, 0ULL);
+
+  fn_exit:
+    MPIR_FUNC_VERBOSE_EXIT(MPID_STATE_MPIDI_NM_MPI_ISEND);
+    return mpi_errno;
+}
+
+#undef FUNCNAME
+#define FUNCNAME MPIDI_NM_mpi_isend_noreq
+#undef FCNAME
+#define FCNAME MPL_QUOTE(FUNCNAME)
+MPL_STATIC_INLINE_PREFIX int MPIDI_NM_mpi_isend_noreq(MPIDI_OFI_SENDPARAMS_NOREQ)
+{
+    int mpi_errno;
+    MPIR_FUNC_VERBOSE_STATE_DECL(MPID_STATE_MPIDI_NM_MPI_ISEND);
+    MPIR_FUNC_VERBOSE_ENTER(MPID_STATE_MPIDI_NM_MPI_ISEND);
+
+    if (!MPIDI_OFI_ENABLE_TAGGED) {
+        mpi_errno = MPIDIG_mpi_isend(buf, count, datatype, rank, tag, comm, context_offset, NULL);
+        goto fn_exit;
+    }
+
+    mpi_errno = MPIDI_OFI_send_noreq(MPIDI_OFI_SENDARGS_NOREQ, 0ULL);
 
   fn_exit:
     MPIR_FUNC_VERBOSE_EXIT(MPID_STATE_MPIDI_NM_MPI_ISEND);

@@ -115,6 +115,56 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_OFI_do_irecv(void *buf,
     goto fn_exit;
 }
 
+#undef FUNCNAME
+#define FUNCNAME MPIDI_OFI_do_irecv_noreq
+#undef FCNAME
+#define FCNAME MPL_QUOTE(FUNCNAME)
+MPL_STATIC_INLINE_PREFIX int MPIDI_OFI_do_irecv_noreq(void *buf,
+                                                int count,
+                                                MPI_Datatype datatype,
+                                                int rank,
+                                                int tag,
+                                                MPIR_Comm * comm,
+                                                int context_offset,
+                                                int mode, uint64_t flags)
+{
+    int mpi_errno = MPI_SUCCESS;
+    uint64_t match_bits, mask_bits;
+    MPIR_Context_id_t context_id = comm->recvcontext_id + context_offset;
+    size_t data_sz;
+    int dt_contig;
+    MPI_Aint dt_true_lb;
+    MPIR_Datatype *dt_ptr;
+    struct fi_msg_tagged msg;
+    char *recv_buf;
+    MPIR_FUNC_VERBOSE_STATE_DECL(MPID_STATE_MPIDI_OFI_DO_IRECV);
+    MPIR_FUNC_VERBOSE_ENTER(MPID_STATE_MPIDI_OFI_DO_IRECV);
+
+    match_bits = MPIDI_OFI_init_recvtag(&mask_bits, context_id, rank, tag);
+
+    MPIDI_Datatype_get_info(count, datatype, dt_contig, data_sz, dt_ptr, dt_true_lb);
+    dtype_add_ref_if_not_builtin(datatype);
+
+    recv_buf = (char *) buf + dt_true_lb;
+
+    MPIDI_OFI_CALL_RETRY(fi_trecv(MPIDI_OFI_EP_RX_TAG(0),
+                                  recv_buf,
+                                  data_sz,
+                                  NULL,
+                                  (MPI_ANY_SOURCE ==
+                                   rank) ? FI_ADDR_UNSPEC : MPIDI_OFI_comm_to_phys(comm, rank,
+                                                                                   MPIDI_OFI_API_TAG),
+                                  match_bits, mask_bits,
+                                  NULL), trecv,
+                                  MPIDI_OFI_CALL_LOCK);
+    MPIDI_CH4_Global.pend_ops++;
+
+  fn_exit:
+    MPIR_FUNC_VERBOSE_EXIT(MPID_STATE_MPIDI_OFI_DO_IRECV);
+    return mpi_errno;
+  fn_fail:
+    goto fn_exit;
+}
 
 #undef FUNCNAME
 #define FUNCNAME MPIDI_NM_mpi_recv
@@ -253,6 +303,34 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_NM_mpi_irecv(void *buf,
 
     mpi_errno = MPIDI_OFI_do_irecv(buf, count, datatype, rank, tag, comm,
                                    context_offset, request, MPIDI_OFI_ON_HEAP, 0ULL);
+
+  fn_exit:
+    MPIR_FUNC_VERBOSE_EXIT(MPID_STATE_MPIDI_NM_MPI_IRECV);
+    return mpi_errno;
+}
+
+#undef FUNCNAME
+#define FUNCNAME MPIDI_NM_mpi_irecv_noreq
+#undef FCNAME
+#define FCNAME MPL_QUOTE(FUNCNAME)
+MPL_STATIC_INLINE_PREFIX int MPIDI_NM_mpi_irecv_noreq(void *buf,
+                                                int count,
+                                                MPI_Datatype datatype,
+                                                int rank,
+                                                int tag,
+                                                MPIR_Comm * comm, int context_offset)
+{
+    int mpi_errno = MPI_SUCCESS;
+    MPIR_FUNC_VERBOSE_STATE_DECL(MPID_STATE_MPIDI_NM_MPI_IRECV);
+    MPIR_FUNC_VERBOSE_ENTER(MPID_STATE_MPIDI_NM_MPI_IRECV);
+
+    if (!MPIDI_OFI_ENABLE_TAGGED) {
+        mpi_errno = MPIDIG_mpi_irecv(buf, count, datatype, rank, tag, comm, context_offset, NULL);
+        goto fn_exit;
+    }
+
+    mpi_errno = MPIDI_OFI_do_irecv_noreq(buf, count, datatype, rank, tag, comm,
+                                   context_offset, MPIDI_OFI_ON_HEAP, 0ULL);
 
   fn_exit:
     MPIR_FUNC_VERBOSE_EXIT(MPID_STATE_MPIDI_NM_MPI_IRECV);

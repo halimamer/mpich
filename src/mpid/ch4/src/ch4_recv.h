@@ -332,6 +332,41 @@ MPL_STATIC_INLINE_PREFIX int MPID_Irecv(void *buf,
 }
 
 #undef FUNCNAME
+#define FUNCNAME MPID_Irecv_noreq
+#undef FCNAME
+#define FCNAME MPL_QUOTE(FUNCNAME)
+MPL_STATIC_INLINE_PREFIX int MPID_Irecv_noreq(void *buf,
+                                         int count,
+                                         MPI_Datatype datatype,
+                                         int rank,
+                                         int tag,
+                                         MPIR_Comm * comm, int context_offset)
+{
+    int mpi_errno;
+    MPIR_FUNC_VERBOSE_STATE_DECL(MPID_STATE_MPID_IRECV);
+    MPIR_FUNC_VERBOSE_ENTER(MPID_STATE_MPID_IRECV);
+
+    if (unlikely(rank == MPI_PROC_NULL)) {
+        mpi_errno = MPI_SUCCESS;
+        goto fn_exit;
+    }
+
+#ifndef MPIDI_CH4_EXCLUSIVE_SHM
+    mpi_errno = MPIDI_NM_mpi_irecv_noreq(buf, count, datatype, rank, tag, comm, context_offset);
+#else
+#error "Disable shared memory and then rebuild"
+#endif
+    if (mpi_errno != MPI_SUCCESS) {
+        MPIR_ERR_POP(mpi_errno);
+    }
+  fn_exit:
+    MPIR_FUNC_VERBOSE_EXIT(MPID_STATE_MPID_IRECV);
+    return mpi_errno;
+  fn_fail:
+    goto fn_exit;
+}
+
+#undef FUNCNAME
 #define FUNCNAME MPIDI_Cancel_Recv
 #undef FCNAME
 #define FCNAME MPL_QUOTE(FUNCNAME)

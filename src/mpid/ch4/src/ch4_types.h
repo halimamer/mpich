@@ -256,6 +256,7 @@ typedef struct MPIDI_CH4_Global_t {
     int pname_set;
     int pname_len;
     char pname[MPI_MAX_PROCESSOR_NAME];
+    int pend_ops;
     int is_initialized;
     int allocated_max_n_avts;
     MPIDI_CH4_avt_manager avt_mgr;

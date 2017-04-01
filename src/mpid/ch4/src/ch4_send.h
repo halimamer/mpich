@@ -109,6 +109,46 @@ MPL_STATIC_INLINE_PREFIX int MPID_Isend(const void *buf,
     goto fn_exit;
 }
 
+#undef FUNCNAME
+#define FUNCNAME MPID_Isend_noreq
+#undef FCNAME
+#define FCNAME MPL_QUOTE(FUNCNAME)
+MPL_STATIC_INLINE_PREFIX int MPID_Isend_noreq(const void *buf,
+                                         int count,
+                                         MPI_Datatype datatype,
+                                         int rank,
+                                         int tag,
+                                         MPIR_Comm * comm, int context_offset)
+{
+    int mpi_errno;
+    MPIR_FUNC_VERBOSE_STATE_DECL(MPID_STATE_MPID_ISEND);
+    MPIR_FUNC_VERBOSE_ENTER(MPID_STATE_MPID_ISEND);
+
+    if (unlikely(rank == MPI_PROC_NULL)) {
+        mpi_errno = MPI_SUCCESS;
+        goto fn_exit;
+    }
+
+#ifndef MPIDI_CH4_EXCLUSIVE_SHM
+    mpi_errno = MPIDI_NM_mpi_isend_noreq(buf, count, datatype, rank, tag, comm, context_offset);
+#else
+    int r;
+    if ((r = MPIDI_CH4_rank_is_local(rank, comm)))
+        mpi_errno =
+            MPIDI_SHM_mpi_isend(buf, count, datatype, rank, tag, comm, context_offset, NULL);
+    else
+        mpi_errno =
+            MPIDI_NM_mpi_isend_noreq(buf, count, datatype, rank, tag, comm, context_offset);
+#endif
+    if (mpi_errno != MPI_SUCCESS) {
+        MPIR_ERR_POP(mpi_errno);
+    }
+  fn_exit:
+    MPIR_FUNC_VERBOSE_EXIT(MPID_STATE_MPID_ISEND);
+    return mpi_errno;
+  fn_fail:
+    goto fn_exit;
+}
 
 #undef FUNCNAME
 #define FUNCNAME MPID_Rsend

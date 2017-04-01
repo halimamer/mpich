@@ -122,8 +122,9 @@ int MPI_Isend(const void *buf, int count, MPI_Datatype datatype, int dest, int t
 
     /* ... body of routine ...  */
     
-    mpi_errno = MPID_Isend(buf, count, datatype, dest, tag, comm_ptr,
-			   MPIR_CONTEXT_INTRA_PT2PT, &request_ptr);
+    mpi_errno = MPID_Isend_noreq(buf, count, datatype, dest, tag, comm_ptr,
+			   MPIR_CONTEXT_INTRA_PT2PT);
+    *request = MPI_REQUEST_NULL;
     if (mpi_errno != MPI_SUCCESS) goto fn_fail;
 
     MPII_SENDQ_REMEMBER(request_ptr,dest,tag,comm_ptr->context_id);
@@ -132,7 +133,7 @@ int MPI_Isend(const void *buf, int count, MPI_Datatype datatype, int dest, int t
     /* MPIU_OBJ_HANDLE_PUBLISH is unnecessary for isend, lower-level access is
      * responsible for its own consistency, while upper-level field access is
      * controlled by the completion counter */
-    *request = request_ptr->handle;
+    *request = MPI_REQUEST_NULL;
 
     /* ... end of body of routine ... */
     
