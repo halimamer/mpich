@@ -163,6 +163,88 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_OFI_recv_event(struct fi_cq_tagged_entry *wc,
 }
 
 #undef FUNCNAME
+#define FUNCNAME MPIDI_OFI_recv_event_min
+#undef FCNAME
+#define FCNAME MPL_QUOTE(FUNCNAME)
+MPL_STATIC_INLINE_PREFIX int MPIDI_OFI_recv_event_min(struct fi_cq_tagged_entry *wc,
+                                                       MPIR_Request * rreq)
+{
+    int mpi_errno = MPI_SUCCESS;
+    MPI_Aint last;
+    size_t count;
+    MPIR_FUNC_VERBOSE_STATE_DECL(MPID_STATE_NETMOD_OFI_RECV_EVENT);
+    MPIR_FUNC_VERBOSE_ENTER(MPID_STATE_NETMOD_OFI_RECV_EVENT);
+
+    rreq->status.MPI_ERROR = MPI_SUCCESS;
+    rreq->status.MPI_SOURCE = MPIDI_OFI_cqe_get_source(wc);
+    rreq->status.MPI_TAG = MPIDI_OFI_init_get_tag(wc->tag);
+    count = wc->len;
+    MPIR_STATUS_SET_COUNT(rreq->status, count);
+
+#ifdef MPIDI_BUILD_CH4_SHM
+
+    if (MPIDI_CH4I_REQUEST_ANYSOURCE_PARTNER(rreq)) {
+        int continue_matching = 1;
+
+        MPIDI_CH4R_anysource_matched(MPIDI_CH4I_REQUEST_ANYSOURCE_PARTNER(rreq), MPIDI_CH4R_NETMOD,
+                                     &continue_matching);
+
+        /* It is always possible to cancel a request on shm side w/o an aux thread */
+
+        /* Decouple requests */
+        if (unlikely(MPIDI_CH4I_REQUEST_ANYSOURCE_PARTNER(rreq))) {
+            MPIDI_CH4I_REQUEST_ANYSOURCE_PARTNER(MPIDI_CH4I_REQUEST_ANYSOURCE_PARTNER(rreq)) = NULL;
+            MPIDI_CH4I_REQUEST_ANYSOURCE_PARTNER(rreq) = NULL;
+        }
+
+        if (!continue_matching)
+            goto fn_exit;
+    }
+
+#endif
+
+    if (MPIDI_OFI_REQUEST(rreq, noncontig)) {
+        last = count;
+        MPID_Segment_unpack(&MPIDI_OFI_REQUEST(rreq, noncontig->segment), 0, &last,
+                            MPIDI_OFI_REQUEST(rreq, noncontig->pack_buffer));
+        MPL_free(MPIDI_OFI_REQUEST(rreq, noncontig));
+        if (last != (MPI_Aint) count) {
+            rreq->status.MPI_ERROR =
+                MPIR_Err_create_code(MPI_SUCCESS,
+                                     MPIR_ERR_RECOVERABLE,
+                                     __FUNCTION__, __LINE__, MPI_ERR_TYPE, "**dtypemismatch", 0);
+        }
+    }
+
+    /* If syncronous, ack and complete when the ack is done */
+    if (unlikely(MPIDI_OFI_is_tag_sync(wc->tag))) {
+        uint64_t ss_bits = MPIDI_OFI_init_sendtag(MPIDI_OFI_REQUEST(rreq, util_id),
+                                                  MPIDI_OFI_REQUEST(rreq, util_comm->rank),
+                                                  rreq->status.MPI_TAG,
+                                                  MPIDI_OFI_SYNC_SEND_ACK);
+        MPIR_Comm *c = MPIDI_OFI_REQUEST(rreq, util_comm);
+        int r = rreq->status.MPI_SOURCE;
+        mpi_errno = MPIDI_OFI_send_handler(MPIDI_OFI_EP_TX_TAG(0), NULL, 0, NULL,
+                                           MPIDI_OFI_REQUEST(rreq, util_comm->rank),
+                                           MPIDI_OFI_comm_to_phys(c, r, MPIDI_OFI_API_TAG),
+                                           ss_bits, NULL, MPIDI_OFI_DO_INJECT,
+                                           MPIDI_OFI_CALL_NO_LOCK);
+        if (mpi_errno)
+            MPIR_ERR_POP(mpi_errno);
+    }
+
+    MPIDI_CH4U_request_complete(rreq);
+
+    /* Polling loop will check for truncation */
+  fn_exit:
+    MPIR_FUNC_VERBOSE_EXIT(MPID_STATE_NETMOD_OFI_RECV_EVENT);
+    return mpi_errno;
+  fn_fail:
+    rreq->status.MPI_ERROR = mpi_errno;
+    goto fn_exit;
+}
+
+#undef FUNCNAME
 #define FUNCNAME MPIDI_OFI_recv_huge_event
 #undef FCNAME
 #define FCNAME MPL_QUOTE(FUNCNAME)
@@ -214,6 +296,27 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_OFI_send_event(struct fi_cq_tagged_entry *wc,
             MPL_free(MPIDI_OFI_REQUEST(sreq, noncontig));
 
         dtype_release_if_not_builtin(MPIDI_OFI_REQUEST(sreq, datatype));
+        MPIR_Request_free(sreq);
+    }   /* c != 0, ssend */
+
+    MPIR_FUNC_VERBOSE_EXIT(MPID_STATE_NETMOD_OFI_SEND_EVENT);
+    return MPI_SUCCESS;
+}
+
+#undef FUNCNAME
+#define FUNCNAME MPIDI_OFI_send_event_min
+#undef FCNAME
+#define FCNAME MPL_QUOTE(FUNCNAME)
+MPL_STATIC_INLINE_PREFIX int MPIDI_OFI_send_event_min(struct fi_cq_tagged_entry *wc,
+                                                  MPIR_Request * sreq)
+{
+    int c;
+    MPIR_FUNC_VERBOSE_STATE_DECL(MPID_STATE_NETMOD_OFI_SEND_EVENT_MIN);
+    MPIR_FUNC_VERBOSE_ENTER(MPID_STATE_NETMOD_OFI_SEND_EVENT_MIN);
+
+    MPIR_cc_decr(sreq->cc_ptr, &c);
+
+    if (c == 0) {
         MPIR_Request_free(sreq);
     }   /* c != 0, ssend */
 
@@ -620,8 +723,16 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_OFI_dispatch_function(struct fi_cq_tagged_ent
         mpi_errno = MPIDI_OFI_send_event(wc, req);
         goto fn_exit;
     }
+    else if (likely(MPIDI_OFI_REQUEST(req, event_id) == MPIDI_OFI_EVENT_SEND_MIN)) {
+        mpi_errno = MPIDI_OFI_send_event_min(wc, req);
+        goto fn_exit;
+    }
     else if (likely(MPIDI_OFI_REQUEST(req, event_id) == MPIDI_OFI_EVENT_RECV)) {
         mpi_errno = MPIDI_OFI_recv_event(wc, req);
+        goto fn_exit;
+    }
+    else if (likely(MPIDI_OFI_REQUEST(req, event_id) == MPIDI_OFI_EVENT_RECV_MIN)) {
+        mpi_errno = MPIDI_OFI_recv_event_min(wc, req);
         goto fn_exit;
     }
     else if (likely(MPIDI_OFI_REQUEST(req, event_id) == MPIDI_OFI_EVENT_RMA_DONE)) {

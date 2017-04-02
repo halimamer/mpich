@@ -115,6 +115,83 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_OFI_do_irecv(void *buf,
     goto fn_exit;
 }
 
+#undef FUNCNAME
+#define FUNCNAME MPIDI_OFI_do_irecv_min
+#undef FCNAME
+#define FCNAME MPL_QUOTE(FUNCNAME)
+MPL_STATIC_INLINE_PREFIX int MPIDI_OFI_do_irecv_min(void *buf,
+                                                     int count,
+                                                     int rank,
+                                                     int tag,
+                                                     MPIR_Comm * comm,
+                                                     int context_offset,
+                                                     MPIR_Request ** request, int mode, uint64_t flags)
+{
+    int mpi_errno = MPI_SUCCESS;
+    MPIR_Request *rreq = NULL;
+    uint64_t match_bits, mask_bits;
+    MPIR_Context_id_t context_id = comm->recvcontext_id + context_offset;
+    size_t data_sz = count;
+    struct fi_msg_tagged msg;
+    char *recv_buf = buf;
+    MPIR_FUNC_VERBOSE_STATE_DECL(MPID_STATE_MPIDI_OFI_DO_IRECV);
+    MPIR_FUNC_VERBOSE_ENTER(MPID_STATE_MPIDI_OFI_DO_IRECV);
+
+    if (mode == MPIDI_OFI_ON_HEAP)      /* Branch should compile out */
+        MPIDI_OFI_REQUEST_CREATE(rreq, MPIR_REQUEST_KIND__RECV);
+    else if (mode == MPIDI_OFI_USE_EXISTING) {
+        rreq = *request;
+        rreq->kind = MPIR_REQUEST_KIND__RECV;
+    }
+
+    *request = rreq;
+
+    match_bits = MPIDI_OFI_init_recvtag(&mask_bits, context_id, rank, tag);
+
+    MPIDI_OFI_REQUEST(rreq, util_comm) = comm;
+    MPIDI_OFI_REQUEST(rreq, util_id) = context_id;
+
+    if (unlikely(data_sz > MPIDI_Global.max_send)) {
+        MPIDI_OFI_REQUEST(rreq, event_id) = MPIDI_OFI_EVENT_RECV_HUGE;
+        data_sz = MPIDI_Global.max_send;
+    }
+    else
+        MPIDI_OFI_REQUEST(rreq, event_id) = MPIDI_OFI_EVENT_RECV_MIN;
+
+    if (!flags) /* Branch should compile out */
+        MPIDI_OFI_CALL_RETRY(fi_trecv(MPIDI_OFI_EP_RX_TAG(0),
+                                      recv_buf,
+                                      data_sz,
+                                      NULL,
+                                      (MPI_ANY_SOURCE ==
+                                       rank) ? FI_ADDR_UNSPEC : MPIDI_OFI_comm_to_phys(comm, rank,
+                                                                                       MPIDI_OFI_API_TAG),
+                                      match_bits, mask_bits,
+                                      (void *) &(MPIDI_OFI_REQUEST(rreq, context))), trecv,
+                             MPIDI_OFI_CALL_LOCK);
+    else {
+        MPIDI_OFI_REQUEST(rreq, util.iov).iov_base = recv_buf;
+        MPIDI_OFI_REQUEST(rreq, util.iov).iov_len = data_sz;
+
+        msg.msg_iov = &MPIDI_OFI_REQUEST(rreq, util.iov);
+        msg.desc = NULL;
+        msg.iov_count = 1;
+        msg.tag = match_bits;
+        msg.ignore = mask_bits;
+        msg.context = (void *) &(MPIDI_OFI_REQUEST(rreq, context));
+        msg.data = 0;
+        msg.addr = FI_ADDR_UNSPEC;
+
+        MPIDI_OFI_CALL_RETRY(fi_trecvmsg(MPIDI_OFI_EP_RX_TAG(0), &msg, flags), trecv,
+                             MPIDI_OFI_CALL_LOCK);
+    }
+
+  fn_exit:
+    MPIR_FUNC_VERBOSE_EXIT(MPID_STATE_MPIDI_OFI_DO_IRECV);
+    return mpi_errno;
+  fn_fail:
+    goto fn_exit;
+}
 
 #undef FUNCNAME
 #define FUNCNAME MPIDI_NM_mpi_recv
@@ -143,6 +220,29 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_NM_mpi_recv(void *buf,
 
 fn_exit:
     MPIR_FUNC_VERBOSE_EXIT(MPID_STATE_MPIDI_NM_MPI_RECV);
+    return mpi_errno;
+}
+
+#undef FUNCNAME
+#define FUNCNAME MPIDI_NM_mpi_recv_min
+#undef FCNAME
+#define FCNAME MPL_QUOTE(FUNCNAME)
+MPL_STATIC_INLINE_PREFIX int MPIDI_NM_mpi_recv_min(void *buf,
+                                               int count,
+                                               int rank,
+                                               int tag,
+                                               MPIR_Comm * comm,
+                                               int context_offset,
+                                               MPI_Status * status, MPIR_Request ** request)
+{
+    int mpi_errno;
+    MPIR_FUNC_VERBOSE_STATE_DECL(MPID_STATE_MPIDI_NM_MPI_RECV_MIN);
+    MPIR_FUNC_VERBOSE_ENTER(MPID_STATE_MPIDI_NM_MPI_RECV_MIN);
+
+    mpi_errno = MPIDI_OFI_do_irecv_min(buf, count, rank, tag, comm,
+                                   context_offset, request, MPIDI_OFI_ON_HEAP, 0ULL);
+
+    MPIR_FUNC_VERBOSE_EXIT(MPID_STATE_MPIDI_NM_MPI_RECV_MIN);
     return mpi_errno;
 }
 
@@ -256,6 +356,28 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_NM_mpi_irecv(void *buf,
 
   fn_exit:
     MPIR_FUNC_VERBOSE_EXIT(MPID_STATE_MPIDI_NM_MPI_IRECV);
+    return mpi_errno;
+}
+
+#undef FUNCNAME
+#define FUNCNAME MPIDI_NM_mpi_irecv_min
+#undef FCNAME
+#define FCNAME MPL_QUOTE(FUNCNAME)
+MPL_STATIC_INLINE_PREFIX int MPIDI_NM_mpi_irecv_min(void *buf,
+                                                int count,
+                                                int rank,
+                                                int tag,
+                                                MPIR_Comm * comm, int context_offset,
+                                                MPIR_Request ** request)
+{
+    int mpi_errno = MPI_SUCCESS;
+    MPIR_FUNC_VERBOSE_STATE_DECL(MPID_STATE_MPIDI_NM_MPI_IRECV_MIN);
+    MPIR_FUNC_VERBOSE_ENTER(MPID_STATE_MPIDI_NM_MPI_IRECV_MIN);
+
+    mpi_errno = MPIDI_OFI_do_irecv_min(buf, count, rank, tag, comm,
+                                   context_offset, request, MPIDI_OFI_ON_HEAP, 0ULL);
+
+    MPIR_FUNC_VERBOSE_EXIT(MPID_STATE_MPIDI_NM_MPI_IRECV_MIN);
     return mpi_errno;
 }
 

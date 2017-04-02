@@ -15,7 +15,7 @@
 #elif defined(HAVE_PRAGMA_CRI_DUP)
 #pragma _CRI duplicate MPI_Irecv as PMPI_Irecv
 #elif defined(HAVE_WEAK_ATTRIBUTE)
-int MPI_Irecv(void *buf, int count, MPI_Datatype datatype, int source, int tag,
+int MPI_Irecv(void *buf, int count, int source, int tag,
               MPI_Comm comm, MPI_Request *request) __attribute__((weak,alias("PMPI_Irecv")));
 #endif
 /* -- End Profiling Symbol Block */
@@ -37,7 +37,6 @@ int MPI_Irecv(void *buf, int count, MPI_Datatype datatype, int source, int tag,
 Input Parameters:
 + buf - initial address of receive buffer (choice) 
 . count - number of elements in receive buffer (integer) 
-. datatype - datatype of each receive buffer element (handle) 
 . source - rank of source (integer) 
 . tag - message tag (integer) 
 - comm - communicator (handle) 
@@ -58,7 +57,7 @@ Output Parameters:
 .N MPI_ERR_RANK
 .N MPI_ERR_EXHAUSTED
 @*/
-int MPI_Irecv(void *buf, int count, MPI_Datatype datatype, int source,
+int MPI_Irecv(void *buf, int count, int source,
 	      int tag, MPI_Comm comm, MPI_Request *request)
 {
     static const char FCNAME[] = "MPI_Irecv";
@@ -99,23 +98,6 @@ int MPI_Irecv(void *buf, int count, MPI_Datatype datatype, int source,
 	    MPIR_ERRTEST_RECV_TAG(tag, mpi_errno);
 	    MPIR_ERRTEST_ARGNULL(request,"request",mpi_errno);
 
-	    /* Validate datatype handle */
-	    MPIR_ERRTEST_DATATYPE(datatype, "datatype", mpi_errno);
-	    
-	    /* Validate datatype object */
-	    if (HANDLE_GET_KIND(datatype) != HANDLE_KIND_BUILTIN)
-	    {
-		MPIR_Datatype *datatype_ptr = NULL;
-
-		MPID_Datatype_get_ptr(datatype, datatype_ptr);
-		MPIR_Datatype_valid_ptr(datatype_ptr, mpi_errno);
-		if (mpi_errno) goto fn_fail;
-		MPID_Datatype_committed_ptr(datatype_ptr, mpi_errno);
-		if (mpi_errno) goto fn_fail;
-	    }
-	    
-	    /* Validate buffer */
-	    MPIR_ERRTEST_USERBUFFER(buf,count,datatype,mpi_errno);
         }
         MPID_END_ERROR_CHECKS;
     }
@@ -123,7 +105,7 @@ int MPI_Irecv(void *buf, int count, MPI_Datatype datatype, int source,
 
     /* ... body of routine ...  */
     
-    mpi_errno = MPID_Irecv(buf, count, datatype, source, tag, comm_ptr, 
+    mpi_errno = MPID_Irecv_min(buf, count, source, tag, comm_ptr,
 			   MPIR_CONTEXT_INTRA_PT2PT, &request_ptr);
     /* return the handle of the request to the user */
     /* MPIU_OBJ_HANDLE_PUBLISH is unnecessary for irecv, lower-level access is
@@ -151,7 +133,7 @@ int MPI_Irecv(void *buf, int count, MPI_Datatype datatype, int source,
     {
 	mpi_errno = MPIR_Err_create_code(
 	    mpi_errno, MPIR_ERR_RECOVERABLE, FCNAME, __LINE__, MPI_ERR_OTHER, "**mpi_irecv",
-	    "**mpi_irecv %p %d %D %i %t %C %p", buf, count, datatype, source, tag, comm, request);
+	    "**mpi_irecv %p %d %i %t %C %p", buf, count, source, tag, comm, request);
     }
 #   endif
     mpi_errno = MPIR_Err_return_comm( comm_ptr, FCNAME, mpi_errno );

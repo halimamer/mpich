@@ -41,6 +41,7 @@ MPIDI_NM_funcs_t MPIDI_NM_stubnm_funcs = {
 
 MPIDI_NM_native_funcs_t MPIDI_NM_native_stubnm_funcs = {
     MPIDI_NM_mpi_send,
+    NULL,
     MPIDI_NM_mpi_ssend,
     MPIDI_NM_mpi_startall,
     MPIDI_NM_mpi_send_init,
@@ -48,11 +49,14 @@ MPIDI_NM_native_funcs_t MPIDI_NM_native_stubnm_funcs = {
     MPIDI_NM_mpi_rsend_init,
     MPIDI_NM_mpi_bsend_init,
     MPIDI_NM_mpi_isend,
+    NULL,
     MPIDI_NM_mpi_issend,
     MPIDI_NM_mpi_cancel_send,
     MPIDI_NM_mpi_recv_init,
     MPIDI_NM_mpi_recv,
+    NULL,
     MPIDI_NM_mpi_irecv,
+    NULL,
     MPIDI_NM_mpi_imrecv,
     MPIDI_NM_mpi_cancel_recv,
     MPIDI_NM_mpi_alloc_mem,
