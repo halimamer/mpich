@@ -356,6 +356,21 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_NM_mpi_send(const void *buf, int count, MPI_D
     return ret;
 }
 
+MPL_STATIC_INLINE_PREFIX int MPIDI_NM_mpi_send_byte(const void *buf, int count,
+                                               int rank, int tag, MPIR_Comm * comm,
+                                               int context_offset, MPIR_Request ** request)
+{
+    int ret;
+
+    MPIR_FUNC_VERBOSE_STATE_DECL(MPID_STATE_MPIDI_NM_MPI_SEND_BYTE);
+    MPIR_FUNC_VERBOSE_ENTER(MPID_STATE_MPIDI_NM_MPI_SEND_BYTE);
+
+    ret = MPIDI_NM_native_func->mpi_send_byte(buf, count, rank, tag, comm, context_offset, request);
+
+    MPIR_FUNC_VERBOSE_EXIT(MPID_STATE_MPIDI_NM_MPI_SEND_BYTE);
+    return ret;
+}
+
 MPL_STATIC_INLINE_PREFIX int MPIDI_NM_mpi_ssend(const void *buf, int count, MPI_Datatype datatype,
                                                 int rank, int tag, MPIR_Comm * comm,
                                                 int context_offset, MPIR_Request ** request)
@@ -469,6 +484,21 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_NM_mpi_isend(const void *buf, int count, MPI_
     return ret;
 }
 
+MPL_STATIC_INLINE_PREFIX int MPIDI_NM_mpi_isend_byte(const void *buf, int count,
+                                                int rank, int tag, MPIR_Comm * comm,
+                                                int context_offset, MPIR_Request ** request)
+{
+    int ret;
+
+    MPIR_FUNC_VERBOSE_STATE_DECL(MPID_STATE_MPIDI_NM_MPI_ISEND);
+    MPIR_FUNC_VERBOSE_ENTER(MPID_STATE_MPIDI_NM_MPI_ISEND);
+
+    ret = MPIDI_NM_native_func->mpi_isend_byte(buf, count, rank, tag, comm, context_offset, request);
+
+    MPIR_FUNC_VERBOSE_EXIT(MPID_STATE_MPIDI_NM_MPI_ISEND);
+    return ret;
+}
+
 MPL_STATIC_INLINE_PREFIX int MPIDI_NM_mpi_issend(const void *buf, int count, MPI_Datatype datatype,
                                                  int rank, int tag, MPIR_Comm * comm,
                                                  int context_offset, MPIR_Request ** request)
@@ -531,6 +561,23 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_NM_mpi_recv(void *buf, int count, MPI_Datatyp
     return ret;
 }
 
+MPL_STATIC_INLINE_PREFIX int MPIDI_NM_mpi_recv_byte(void *buf, int count,
+                                               int rank, int tag, MPIR_Comm * comm,
+                                               int context_offset, MPI_Status * status,
+                                               MPIR_Request ** request)
+{
+    int ret;
+
+    MPIR_FUNC_VERBOSE_STATE_DECL(MPID_STATE_MPIDI_NM_MPI_RECV_BYTE);
+    MPIR_FUNC_VERBOSE_ENTER(MPID_STATE_MPIDI_NM_MPI_RECV_BYTE);
+
+    ret = MPIDI_NM_native_func->mpi_recv_byte(buf, count, rank, tag, comm, context_offset,
+                                         status, request);
+
+    MPIR_FUNC_VERBOSE_EXIT(MPID_STATE_MPIDI_NM_MPI_RECV_BYTE);
+    return ret;
+}
+
 MPL_STATIC_INLINE_PREFIX int MPIDI_NM_mpi_irecv(void *buf, int count, MPI_Datatype datatype,
                                                 int rank, int tag, MPIR_Comm * comm,
                                                 int context_offset, MPIR_Request ** request)
@@ -542,6 +589,21 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_NM_mpi_irecv(void *buf, int count, MPI_Dataty
 
     ret = MPIDI_NM_native_func->mpi_irecv(buf, count, datatype, rank, tag, comm, context_offset,
                                           request);
+
+    MPIR_FUNC_VERBOSE_EXIT(MPID_STATE_MPIDI_NM_MPI_IRECV);
+    return ret;
+}
+
+MPL_STATIC_INLINE_PREFIX int MPIDI_NM_mpi_irecv_byte(void *buf, int count,
+                                                int rank, int tag, MPIR_Comm * comm,
+                                                int context_offset, MPIR_Request ** request)
+{
+    int ret;
+
+    MPIR_FUNC_VERBOSE_STATE_DECL(MPID_STATE_MPIDI_NM_MPI_IRECV);
+    MPIR_FUNC_VERBOSE_ENTER(MPID_STATE_MPIDI_NM_MPI_IRECV);
+
+    ret = MPIDI_NM_native_func->mpi_irecv_byte(buf, count, rank, tag, comm, context_offset, request);
 
     MPIR_FUNC_VERBOSE_EXIT(MPID_STATE_MPIDI_NM_MPI_IRECV);
     return ret;
