@@ -26,6 +26,8 @@
 #define MPIDI_OFI_AV_TO_PHYS(av) ((av)->dest)
 #define MPIDI_OFI_COMM_TO_PHYS(comm,rank)                       \
     MPIDI_OFI_AV(MPIDIU_comm_rank_to_av((comm), (rank))).dest
+#define MPIDI_OFI_NOCOMM_TO_PHYS(rank)                       \
+    MPIDI_OFI_AV(MPIDIU_rank_to_av(rank)).dest
 #define MPIDI_OFI_TO_PHYS(avtid, lpid)                                 \
     MPIDI_OFI_AV(&MPIDIU_get_av((avtid), (lpid))).dest
 
@@ -318,6 +320,11 @@ MPL_STATIC_INLINE_PREFIX fi_addr_t MPIDI_OFI_comm_to_phys(MPIR_Comm * comm, int 
     } else {
         return MPIDI_OFI_COMM_TO_PHYS(comm, rank);
     }
+}
+
+MPL_STATIC_INLINE_PREFIX fi_addr_t MPIDI_OFI_nocomm_to_phys(int rank, int ep_family)
+{
+        return MPIDI_OFI_NOCOMM_TO_PHYS(rank);
 }
 
 MPL_STATIC_INLINE_PREFIX fi_addr_t MPIDI_OFI_to_phys(int rank, int ep_family)

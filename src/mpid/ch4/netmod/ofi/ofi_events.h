@@ -137,14 +137,13 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_OFI_recv_event(struct fi_cq_tagged_entry *wc,
     /* If syncronous, ack and complete when the ack is done */
     if (unlikely(MPIDI_OFI_is_tag_sync(wc->tag))) {
         uint64_t ss_bits = MPIDI_OFI_init_sendtag(MPIDI_OFI_REQUEST(rreq, util_id),
-                                                  MPIDI_OFI_REQUEST(rreq, util_comm->rank),
+                                                  MPIDI_comm_world_rank,
                                                   rreq->status.MPI_TAG,
                                                   MPIDI_OFI_SYNC_SEND_ACK);
-        MPIR_Comm *c = MPIDI_OFI_REQUEST(rreq, util_comm);
         int r = rreq->status.MPI_SOURCE;
         mpi_errno = MPIDI_OFI_send_handler(MPIDI_OFI_EP_TX_TAG(0), NULL, 0, NULL,
-                                           MPIDI_OFI_REQUEST(rreq, util_comm->rank),
-                                           MPIDI_OFI_comm_to_phys(c, r, MPIDI_OFI_API_TAG),
+                                           MPIDI_comm_world_rank,
+                                           MPIDI_OFI_nocomm_to_phys(r, MPIDI_OFI_API_TAG),
                                            ss_bits, NULL, MPIDI_OFI_DO_INJECT,
                                            MPIDI_OFI_CALL_NO_LOCK);
         if (mpi_errno)

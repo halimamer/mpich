@@ -21,6 +21,14 @@
 #define MPIDI_OFI_SENDARGS buf,count,datatype,rank,tag, \
                  comm,context_offset,request
 
+#define MPIDI_OFI_SEND_NOCOMM_PARAMS const void *buf,int count,MPI_Datatype datatype, \
+    int rank,int tag,                               \
+    int context_offset,MPIR_Request **request
+
+#define MPIDI_OFI_SEND_NOCOMM_ARGS buf,count,datatype,rank,tag, \
+                 context_offset,request
+
+
 #undef FUNCNAME
 #define FUNCNAME MPIDI_OFI_send_lightweight
 #undef FCNAME
@@ -49,6 +57,36 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_OFI_send_lightweight(const void *buf,
   fn_fail:
     goto fn_exit;
 }
+
+#undef FUNCNAME
+#define FUNCNAME MPIDI_OFI_send_lightweight
+#undef FCNAME
+#define FCNAME MPL_QUOTE(FUNCNAME)
+MPL_STATIC_INLINE_PREFIX int MPIDI_OFI_send_lightweight_min(const void *buf,
+                                                        size_t data_sz,
+                                                        int rank,
+                                                        int tag,
+                                                        int context_offset)
+{
+    int mpi_errno = MPI_SUCCESS;
+    uint64_t match_bits;
+    MPIR_FUNC_VERBOSE_STATE_DECL(MPID_STATE_MPIDI_OFI_SEND_LIGHTWEIGHT);
+    MPIR_FUNC_VERBOSE_ENTER(MPID_STATE_MPIDI_OFI_SEND_LIGHTWEIGHT);
+    match_bits =
+        MPIDI_OFI_init_sendtag( 0 /*comm_world->context_id*/ + context_offset, MPIDI_comm_world_rank, tag, 0);
+    mpi_errno =
+        MPIDI_OFI_send_handler(MPIDI_OFI_EP_TX_TAG(0), buf, data_sz, NULL, MPIDI_comm_world_rank,
+                               MPIDI_OFI_nocomm_to_phys(rank, MPIDI_OFI_API_TAG), match_bits,
+                               NULL, MPIDI_OFI_DO_INJECT, MPIDI_OFI_CALL_LOCK);
+    if (mpi_errno)
+        MPIR_ERR_POP(mpi_errno);
+  fn_exit:
+    MPIR_FUNC_VERBOSE_EXIT(MPID_STATE_MPIDI_OFI_SEND_LIGHTWEIGHT);
+    return mpi_errno;
+  fn_fail:
+    goto fn_exit;
+}
+
 
 #undef FUNCNAME
 #define FUNCNAME MPIDI_OFI_send_lightweight_request
@@ -83,6 +121,40 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_OFI_send_lightweight_request(const void *buf,
   fn_fail:
     goto fn_exit;
 }
+
+#undef FUNCNAME
+#define FUNCNAME MPIDI_OFI_send_lightweight_request_nocomm
+#undef FCNAME
+#define FCNAME MPL_QUOTE(FUNCNAME)
+MPL_STATIC_INLINE_PREFIX int MPIDI_OFI_send_lightweight_request_min(const void *buf,
+                                                                size_t data_sz,
+                                                                int rank,
+                                                                int tag,
+                                                                int context_offset,
+                                                                MPIR_Request ** request)
+{
+    int mpi_errno = MPI_SUCCESS;
+    uint64_t match_bits;
+    MPIR_FUNC_VERBOSE_STATE_DECL(MPID_STATE_MPIDI_OFI_SEND_LIGHTWEIGHT_REQUEST);
+    MPIR_FUNC_VERBOSE_ENTER(MPID_STATE_MPIDI_OFI_SEND_LIGHTWEIGHT_REQUEST);
+    MPIR_Request *r;
+    MPIDI_OFI_SEND_REQUEST_CREATE_LW(r);
+    *request = r;
+    match_bits =
+        MPIDI_OFI_init_sendtag(0 + context_offset, MPIDI_comm_world_rank, tag, 0);
+    mpi_errno =
+        MPIDI_OFI_send_handler(MPIDI_OFI_EP_TX_TAG(0), buf, data_sz, NULL, MPIDI_comm_world_rank,
+                               MPIDI_OFI_nocomm_to_phys(rank, MPIDI_OFI_API_TAG), match_bits,
+                               NULL, MPIDI_OFI_DO_INJECT, MPIDI_OFI_CALL_LOCK);
+    if (mpi_errno)
+        MPIR_ERR_POP(mpi_errno);
+  fn_exit:
+    MPIR_FUNC_VERBOSE_EXIT(MPID_STATE_MPIDI_OFI_SEND_LIGHTWEIGHT_REQUEST);
+    return mpi_errno;
+  fn_fail:
+    goto fn_exit;
+}
+
 
 #undef FUNCNAME
 #define FUNCNAME MPIDI_OFI_send_normal
@@ -418,7 +490,7 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_OFI_send(MPIDI_OFI_SENDPARAMS, int noreq, uin
 #undef FCNAME
 #define FCNAME MPL_QUOTE(FUNCNAME)
 MPL_STATIC_INLINE_PREFIX int MPIDI_OFI_send_min(const void *buf,int count,
-    int rank, int tag, MPIR_Comm *comm,
+    int rank, int tag,
     int context_offset, MPIR_Request **request, int noreq, uint64_t syncflag)
 {
     int mpi_errno;
@@ -428,14 +500,14 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_OFI_send_min(const void *buf,int count,
 
     if (likely(!syncflag && (count <= MPIDI_Global.max_buffered_send))) {
         if (noreq)
-            mpi_errno = MPIDI_OFI_send_lightweight((char *) buf, count,
-                                                   rank, tag, comm, context_offset);
+            mpi_errno = MPIDI_OFI_send_lightweight_min((char *) buf, count,
+                                                   rank, tag, context_offset);
         else
-            mpi_errno = MPIDI_OFI_send_lightweight_request((char *) buf, count,
-                                                           rank, tag, comm, context_offset,
+            mpi_errno = MPIDI_OFI_send_lightweight_request_min((char *) buf, count,
+                                                           rank, tag, context_offset,
                                                            request);
     } else {
-        mpi_errno = MPIDI_OFI_send_normal_min(buf, count, rank, tag, comm,
+        mpi_errno = MPIDI_OFI_send_normal_min(buf, count, rank, tag, NULL /* we assume eager contig */,
                                           context_offset, request,
                                           count, syncflag);
     }
@@ -521,7 +593,7 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_NM_mpi_send(MPIDI_OFI_SENDPARAMS)
 #undef FCNAME
 #define FCNAME MPL_QUOTE(FUNCNAME)
 MPL_STATIC_INLINE_PREFIX int MPIDI_NM_mpi_send_min(const void *buf,int count,
-                                                    int rank, int tag, MPIR_Comm *comm,
+                                                    int rank, int tag,
                                                     int context_offset, MPIR_Request **request)
 {
     int mpi_errno;
@@ -529,7 +601,7 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_NM_mpi_send_min(const void *buf,int count,
     MPIR_FUNC_VERBOSE_ENTER(MPID_STATE_MPIDI_NM_MPI_SEND_MIN);
 
     mpi_errno = MPIDI_OFI_send_min(buf, count, rank, tag,
-                 comm, context_offset, request, 1, 0ULL);
+                 context_offset, request, 1, 0ULL);
 
     MPIR_FUNC_VERBOSE_EXIT(MPID_STATE_MPIDI_NM_MPI_SEND_MIN);
     return mpi_errno;
@@ -585,7 +657,7 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_NM_mpi_isend(MPIDI_OFI_SENDPARAMS)
 #undef FCNAME
 #define FCNAME MPL_QUOTE(FUNCNAME)
 MPL_STATIC_INLINE_PREFIX int MPIDI_NM_mpi_isend_min(const void *buf, int count,
-                                                     int rank, int tag, MPIR_Comm *comm,
+                                                     int rank, int tag,
                                                      int context_offset, MPIR_Request **request)
 {
     int mpi_errno;
@@ -593,7 +665,7 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_NM_mpi_isend_min(const void *buf, int count,
     MPIR_FUNC_VERBOSE_ENTER(MPID_STATE_MPIDI_NM_MPI_ISEND);
 
     mpi_errno = MPIDI_OFI_send_min(buf, count, rank, tag,
-                                    comm, context_offset, request, 0, 0ULL);
+                                    context_offset, request, 0, 0ULL);
 
     MPIR_FUNC_VERBOSE_EXIT(MPID_STATE_MPIDI_NM_MPI_ISEND);
     return mpi_errno;

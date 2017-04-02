@@ -69,12 +69,12 @@ MPL_STATIC_INLINE_PREFIX int MPID_Send_min(const void *buf,
                                         int count,
                                         int rank,
                                         int tag,
-                                        MPIR_Comm * comm, int context_offset,
+                                        int context_offset,
                                         MPIR_Request ** request)
 {
     int mpi_errno;
-    MPIR_FUNC_VERBOSE_STATE_DECL(MPID_STATE_MPID_SEND_BYTE);
-    MPIR_FUNC_VERBOSE_ENTER(MPID_STATE_MPID_SEND_BYTE);
+    MPIR_FUNC_VERBOSE_STATE_DECL(MPID_STATE_MPID_SEND_MIN);
+    MPIR_FUNC_VERBOSE_ENTER(MPID_STATE_MPID_SEND_MIN);
 
     if (unlikely(rank == MPI_PROC_NULL)) {
         MPIR_Request *rreq = MPIR_Request_create(MPIR_REQUEST_KIND__SEND);
@@ -86,15 +86,15 @@ MPL_STATIC_INLINE_PREFIX int MPID_Send_min(const void *buf,
     }
 
 #ifndef MPIDI_CH4_EXCLUSIVE_SHM
-    mpi_errno = MPIDI_NM_mpi_send_min(buf, count, rank, tag, comm, context_offset, request);
+    mpi_errno = MPIDI_NM_mpi_send_min(buf, count, rank, tag, context_offset, request);
 #else
     int r;
-    if ((r = MPIDI_CH4_rank_is_local(rank, comm)))
+    if ((r = MPIDI_CH4_rank_is_local(rank, NULL /* we assume !EXCLUSIVE_SHMEM */)))
         mpi_errno =
-            MPIDI_SHM_mpi_send(buf, count, MPI_DATATYPE_NULL, rank, tag, comm, context_offset, request);
+            MPIDI_SHM_mpi_send(buf, count, MPI_DATATYPE_NULL, rank, tag, NULL /* we assume !EXCLUSIVE_SHMEM */, context_offset, request);
     else
         mpi_errno =
-            MPIDI_NM_mpi_send_min(buf, count, rank, tag, comm, context_offset, request);
+            MPIDI_NM_mpi_send_min(buf, count, rank, tag, context_offset, request);
     if (mpi_errno == MPI_SUCCESS && *request)
         MPIDI_CH4I_REQUEST(*request, is_local) = r;
 #endif
@@ -102,7 +102,7 @@ MPL_STATIC_INLINE_PREFIX int MPID_Send_min(const void *buf,
         MPIR_ERR_POP(mpi_errno);
     }
   fn_exit:
-    MPIR_FUNC_VERBOSE_EXIT(MPID_STATE_MPID_SEND_BYTE);
+    MPIR_FUNC_VERBOSE_EXIT(MPID_STATE_MPID_SEND_MIN);
     return mpi_errno;
   fn_fail:
     goto fn_exit;
@@ -158,12 +158,12 @@ MPL_STATIC_INLINE_PREFIX int MPID_Isend_min(const void *buf,
                                          int count,
                                          int rank,
                                          int tag,
-                                         MPIR_Comm * comm, int context_offset,
+                                         int context_offset,
                                          MPIR_Request ** request)
 {
     int mpi_errno;
-    MPIR_FUNC_VERBOSE_STATE_DECL(MPID_STATE_MPID_ISEND_BYTE);
-    MPIR_FUNC_VERBOSE_ENTER(MPID_STATE_MPID_ISEND_BYTE);
+    MPIR_FUNC_VERBOSE_STATE_DECL(MPID_STATE_MPID_ISEND_MIN);
+    MPIR_FUNC_VERBOSE_ENTER(MPID_STATE_MPID_ISEND_MIN);
 
     if (unlikely(rank == MPI_PROC_NULL)) {
         MPIR_Request *rreq = MPIR_Request_create(MPIR_REQUEST_KIND__SEND);
@@ -175,15 +175,15 @@ MPL_STATIC_INLINE_PREFIX int MPID_Isend_min(const void *buf,
     }
 
 #ifndef MPIDI_CH4_EXCLUSIVE_SHM
-    mpi_errno = MPIDI_NM_mpi_isend_min(buf, count, rank, tag, comm, context_offset, request);
+    mpi_errno = MPIDI_NM_mpi_isend_min(buf, count, rank, tag, context_offset, request);
 #else
     int r;
-    if ((r = MPIDI_CH4_rank_is_local(rank, comm)))
+    if ((r = MPIDI_CH4_rank_is_local(rank, NULL)))
         mpi_errno =
-            MPIDI_SHM_mpi_isend(buf, count, MPI_DATATYPE_NULL, rank, tag, comm, context_offset, request);
+            MPIDI_SHM_mpi_isend(buf, count, MPI_DATATYPE_NULL, rank, tag, NULL, context_offset, request);
     else
         mpi_errno =
-            MPIDI_NM_mpi_isend_min(buf, count, rank, tag, comm, context_offset, request);
+            MPIDI_NM_mpi_isend_min(buf, count, rank, tag, context_offset, request);
     if (mpi_errno == MPI_SUCCESS)
         MPIDI_CH4I_REQUEST(*request, is_local) = r;
 #endif
@@ -191,7 +191,7 @@ MPL_STATIC_INLINE_PREFIX int MPID_Isend_min(const void *buf,
         MPIR_ERR_POP(mpi_errno);
     }
   fn_exit:
-    MPIR_FUNC_VERBOSE_EXIT(MPID_STATE_MPID_ISEND_BYTE);
+    MPIR_FUNC_VERBOSE_EXIT(MPID_STATE_MPID_ISEND_MIN);
     return mpi_errno;
   fn_fail:
     goto fn_exit;
