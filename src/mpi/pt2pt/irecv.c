@@ -16,7 +16,7 @@
 #pragma _CRI duplicate MPI_Irecv as PMPI_Irecv
 #elif defined(HAVE_WEAK_ATTRIBUTE)
 int MPI_Irecv(void *buf, int count, int source, int tag,
-              MPI_Comm comm, MPI_Request *request) __attribute__((weak,alias("PMPI_Irecv")));
+              MPI_Request *request) __attribute__((weak,alias("PMPI_Irecv")));
 #endif
 /* -- End Profiling Symbol Block */
 
@@ -58,11 +58,10 @@ Output Parameters:
 .N MPI_ERR_EXHAUSTED
 @*/
 int MPI_Irecv(void *buf, int count, int source,
-	      int tag, MPI_Comm comm, MPI_Request *request)
+	      int tag, MPI_Request *request)
 {
     static const char FCNAME[] = "MPI_Irecv";
     int mpi_errno = MPI_SUCCESS;
-    MPIR_Comm *comm_ptr = NULL;
     MPIR_Request *request_ptr = NULL;
     MPIR_FUNC_TERSE_STATE_DECL(MPID_STATE_MPI_IRECV);
 
@@ -82,19 +81,14 @@ int MPI_Irecv(void *buf, int count, int source,
     }
 #   endif /* HAVE_ERROR_CHECKING */
     
-    /* Convert MPI object handles to object pointers */
-    MPIR_Comm_get_ptr( comm, comm_ptr );
-
     /* Validate parameters if error checking is enabled */
 #   ifdef HAVE_ERROR_CHECKING
     {
         MPID_BEGIN_ERROR_CHECKS;
         {
-            MPIR_Comm_valid_ptr( comm_ptr, mpi_errno, FALSE );
             if (mpi_errno) goto fn_fail;
 	    
 	    MPIR_ERRTEST_COUNT(count, mpi_errno);
-	    MPIR_ERRTEST_RECV_RANK(comm_ptr, source, mpi_errno);
 	    MPIR_ERRTEST_RECV_TAG(tag, mpi_errno);
 	    MPIR_ERRTEST_ARGNULL(request,"request",mpi_errno);
 
@@ -105,7 +99,7 @@ int MPI_Irecv(void *buf, int count, int source,
 
     /* ... body of routine ...  */
     
-    mpi_errno = MPID_Irecv_min(buf, count, source, tag, comm_ptr,
+    mpi_errno = MPID_Irecv_min(buf, count, source, tag,
 			   MPIR_CONTEXT_INTRA_PT2PT, &request_ptr);
     /* return the handle of the request to the user */
     /* MPIU_OBJ_HANDLE_PUBLISH is unnecessary for irecv, lower-level access is
@@ -133,10 +127,10 @@ int MPI_Irecv(void *buf, int count, int source,
     {
 	mpi_errno = MPIR_Err_create_code(
 	    mpi_errno, MPIR_ERR_RECOVERABLE, FCNAME, __LINE__, MPI_ERR_OTHER, "**mpi_irecv",
-	    "**mpi_irecv %p %d %i %t %C %p", buf, count, source, tag, comm, request);
+	    "**mpi_irecv %p %d %i %t %p", buf, count, source, tag, request);
     }
 #   endif
-    mpi_errno = MPIR_Err_return_comm( comm_ptr, FCNAME, mpi_errno );
+    mpi_errno = MPIR_Err_return_comm( NULL /* we should not get here */, FCNAME, mpi_errno );
     goto fn_exit;
     /* --END ERROR HANDLING-- */
 }

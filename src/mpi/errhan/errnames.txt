@@ -927,7 +927,7 @@ is too big (> MPIU_SHMW_GHND_SZ)
 **mpi_buffer_detach:MPI_Buffer_detach failed
 **mpi_buffer_detach %p %p:MPI_Buffer_detach(buf=%p, size=%p) failed
 **mpi_isend:MPI_Isend failed
-**mpi_isend %p %d %i %t %C %p:MPI_Isend(buf=%p, count=%d, %D, dest=%i, tag=%t, %C, request=%p) failed
+**mpi_isend %p %d %i %t %p:MPI_Isend(buf=%p, count=%d, dest=%i, tag=%t, request=%p) failed
 **mpi_ibsend:MPI_Ibsend failed
 **mpi_ibsend %p %d %D %i %t %C %p:MPI_Ibsend(buf=%p, count=%d, %D, dest=%i, tag=%t, %C, request=%p) failed
 **mpi_issend:MPI_Issend failed
@@ -935,7 +935,7 @@ is too big (> MPIU_SHMW_GHND_SZ)
 **mpi_irsend:MPI_Irsend failed
 **mpi_irsend %p %d %D %i %t %C %p:MPI_Irsend(buf=%p, count=%d, %D, dest=%i, tag=%t, %C, request=%p) failed
 **mpi_irecv:MPI_Irecv failed
-**mpi_irecv %p %d %i %t %C %p:MPI_Irecv(buf=%p, count=%d, %D, src=%i, tag=%t, %C, request=%p) failed
+**mpi_irecv %p %d %i %t %p:MPI_Irecv(buf=%p, count=%d, src=%i, tag=%t, request=%p) failed
 **mpi_wait:MPI_Wait failed
 **mpi_wait %p %p:MPI_Wait(request=%p, status=%p) failed
 **mpi_test:MPI_Test failed

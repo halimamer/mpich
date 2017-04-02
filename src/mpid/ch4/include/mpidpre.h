@@ -419,6 +419,8 @@ typedef struct {
 
 extern MPIDI_av_table_t **MPIDI_av_table;
 extern MPIDI_av_table_t *MPIDI_av_table0;
+extern MPIDI_av_entry_t *MPIDI_table;
+extern int MPIDI_comm_world_rank;
 
 #define MPIDIU_get_av_table(avtid) (MPIDI_av_table[(avtid)])
 #define MPIDIU_get_av(avtid, lpid) (MPIDI_av_table[(avtid)]->table[(lpid)])

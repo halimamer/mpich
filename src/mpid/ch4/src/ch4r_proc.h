@@ -153,6 +153,22 @@ MPL_STATIC_INLINE_PREFIX MPIDI_av_entry_t *MPIDIU_comm_rank_to_av(MPIR_Comm * co
 }
 
 #undef FUNCNAME
+#define FUNCNAME MPIDIU_rank_to_av
+#undef FCNAME
+#define FCNAME MPL_QUOTE(FUNCNAME)
+MPL_STATIC_INLINE_PREFIX MPIDI_av_entry_t *MPIDIU_rank_to_av(int rank)
+{
+    MPIDI_av_entry_t *ret = NULL;
+    MPIR_FUNC_VERBOSE_STATE_DECL(MPID_STATE_MPIDIU_RANK_TO_AV);
+    MPIR_FUNC_VERBOSE_ENTER(MPID_STATE_MPIDIU_RANK_TO_AV);
+
+    ret = &MPIDI_table[rank];
+
+    MPIR_FUNC_VERBOSE_EXIT(MPID_STATE_MPIDIU_RANK_TO_AV);
+    return ret;
+}
+
+#undef FUNCNAME
 #define FUNCNAME MPIDIU_comm_rank_to_pid_local
 #undef FCNAME
 #define FCNAME MPL_QUOTE(FUNCNAME)

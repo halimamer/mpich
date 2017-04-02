@@ -111,13 +111,12 @@ MPL_STATIC_INLINE_PREFIX int MPID_Recv_min(void *buf,
                                         int count,
                                         int rank,
                                         int tag,
-                                        MPIR_Comm * comm,
                                         int context_offset, MPI_Status * status,
                                         MPIR_Request ** request)
 {
     int mpi_errno;
-    MPIR_FUNC_VERBOSE_STATE_DECL(MPID_STATE_MPID_RECV_BYTE);
-    MPIR_FUNC_VERBOSE_ENTER(MPID_STATE_MPID_RECV_BYTE);
+    MPIR_FUNC_VERBOSE_STATE_DECL(MPID_STATE_MPID_RECV_MIN);
+    MPIR_FUNC_VERBOSE_ENTER(MPID_STATE_MPID_RECV_MIN);
 
     if (unlikely(rank == MPI_PROC_NULL)) {
         MPIR_Request *rreq = MPIR_Request_create(MPIR_REQUEST_KIND__RECV);
@@ -132,17 +131,17 @@ MPL_STATIC_INLINE_PREFIX int MPID_Recv_min(void *buf,
 
 #ifndef MPIDI_CH4_EXCLUSIVE_SHM
     mpi_errno =
-        MPIDI_NM_mpi_recv_min(buf, count, rank, tag, comm, context_offset, status, request);
+        MPIDI_NM_mpi_recv_min(buf, count, rank, tag, context_offset, status, request);
 #else
     if (unlikely(rank == MPI_ANY_SOURCE)) {
         mpi_errno =
-            MPIDI_SHM_mpi_irecv(buf, count, MPI_DATATYPE_NULL, rank, tag, comm, context_offset, request);
+            MPIDI_SHM_mpi_irecv(buf, count, MPI_DATATYPE_NULL, rank, tag, NULL /* we assume no shm */, context_offset, request);
 
         if (mpi_errno != MPI_SUCCESS) {
             MPIR_ERR_POP(mpi_errno);
         }
 
-        mpi_errno = MPIDI_NM_mpi_irecv_min(buf, count, rank, tag, comm, context_offset,
+        mpi_errno = MPIDI_NM_mpi_irecv_min(buf, count, rank, tag, context_offset,
                                        &(MPIDI_CH4I_REQUEST_ANYSOURCE_PARTNER(*request)));
 
         if (mpi_errno != MPI_SUCCESS) {
@@ -167,13 +166,13 @@ MPL_STATIC_INLINE_PREFIX int MPID_Recv_min(void *buf,
     }
     else {
         int r;
-        if ((r = MPIDI_CH4_rank_is_local(rank, comm)))
+        if ((r = MPIDI_CH4_rank_is_local(rank, NULL /* no shm */)))
             mpi_errno =
-                MPIDI_SHM_mpi_recv(buf, count, MPI_DATATYPE_NULL, rank, tag, comm, context_offset, status,
+                MPIDI_SHM_mpi_recv(buf, count, MPI_DATATYPE_NULL, rank, tag, NULL /* no shm */, context_offset, status,
                                    request);
         else
             mpi_errno =
-                MPIDI_NM_mpi_recv_min(buf, count, rank, tag, comm, context_offset, status,
+                MPIDI_NM_mpi_recv_min(buf, count, rank, tag, context_offset, status,
                                   request);
         if (mpi_errno == MPI_SUCCESS && *request) {
             MPIDI_CH4I_REQUEST(*request, is_local) = r;
@@ -417,7 +416,7 @@ MPL_STATIC_INLINE_PREFIX int MPID_Irecv_min(void *buf,
                                          int count,
                                          int rank,
                                          int tag,
-                                         MPIR_Comm * comm, int context_offset,
+                                         int context_offset,
                                          MPIR_Request ** request)
 {
     int mpi_errno;
@@ -436,7 +435,7 @@ MPL_STATIC_INLINE_PREFIX int MPID_Irecv_min(void *buf,
     }
 
 #ifndef MPIDI_CH4_EXCLUSIVE_SHM
-    mpi_errno = MPIDI_NM_mpi_irecv_min(buf, count, rank, tag, comm, context_offset, request);
+    mpi_errno = MPIDI_NM_mpi_irecv_min(buf, count, rank, tag, context_offset, request);
 #else
     if (unlikely(rank == MPI_ANY_SOURCE)) {
         mpi_errno =

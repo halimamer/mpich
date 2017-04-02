@@ -18,6 +18,8 @@
 MPIDI_CH4_Global_t MPIDI_CH4_Global;
 MPIDI_av_table_t **MPIDI_av_table;
 MPIDI_av_table_t *MPIDI_av_table0;
+MPIDI_av_entry_t *MPIDI_table;
+int MPIDI_comm_world_rank;
 
 MPIDI_NM_funcs_t *MPIDI_NM_func;
 MPIDI_NM_native_funcs_t *MPIDI_NM_native_func;
