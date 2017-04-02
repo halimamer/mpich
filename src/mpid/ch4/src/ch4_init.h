@@ -168,6 +168,7 @@ MPL_STATIC_INLINE_PREFIX int MPID_Init(int *argc,
     /* Initialize MPI_COMM_WORLD          */
     /* ---------------------------------- */
     MPIR_Process.comm_world->rank = rank;
+    MPIDI_comm_world_rank = rank;
     MPIR_Process.comm_world->remote_size = size;
     MPIR_Process.comm_world->local_size = size;
 
@@ -282,6 +283,8 @@ MPL_STATIC_INLINE_PREFIX int MPID_Init(int *argc,
     *has_args = TRUE;
     *has_env = TRUE;
     MPIDI_CH4_Global.is_initialized = 0;
+
+    MPIDI_table = MPIDI_av_table0->table;
 
   fn_exit:
     MPIR_FUNC_VERBOSE_EXIT(MPID_STATE_MPID_INIT);

@@ -62,6 +62,54 @@ MPL_STATIC_INLINE_PREFIX int MPID_Send(const void *buf,
 }
 
 #undef FUNCNAME
+#define FUNCNAME MPID_Send_nocomm
+#undef FCNAME
+#define FCNAME MPL_QUOTE(FUNCNAME)
+MPL_STATIC_INLINE_PREFIX int MPID_Send_nocomm(const void *buf,
+                                        int count,
+                                        MPI_Datatype datatype,
+                                        int rank,
+                                        int tag,
+                                        int context_offset,
+                                        MPIR_Request ** request)
+{
+    int mpi_errno;
+    MPIR_FUNC_VERBOSE_STATE_DECL(MPID_STATE_MPID_SEND);
+    MPIR_FUNC_VERBOSE_ENTER(MPID_STATE_MPID_SEND);
+
+    if (unlikely(rank == MPI_PROC_NULL)) {
+        MPIR_Request *rreq = MPIR_Request_create(MPIR_REQUEST_KIND__SEND);
+        MPIR_Request_add_ref(rreq);
+        *request = rreq;
+        MPIDI_CH4U_request_complete(rreq);
+        mpi_errno = MPI_SUCCESS;
+        goto fn_exit;
+    }
+
+#ifndef MPIDI_CH4_EXCLUSIVE_SHM
+    mpi_errno = MPIDI_NM_mpi_send_nocomm(buf, count, datatype, rank, tag, context_offset, request);
+#else
+    int r;
+    if ((r = MPIDI_CH4_rank_is_local(rank, NULL /* we assume !EXCLUSIVE_SHMEM */)))
+        mpi_errno =
+            MPIDI_SHM_mpi_send(buf, count, datatype, rank, tag, NULL /* we assume !EXCLUSIVE_SHMEM */, context_offset, request);
+    else
+        mpi_errno =
+            MPIDI_NM_mpi_send_nocomm(buf, count, datatype, rank, tag, context_offset, request);
+    if (mpi_errno == MPI_SUCCESS && *request)
+        MPIDI_CH4I_REQUEST(*request, is_local) = r;
+#endif
+    if (mpi_errno != MPI_SUCCESS) {
+        MPIR_ERR_POP(mpi_errno);
+    }
+  fn_exit:
+    MPIR_FUNC_VERBOSE_EXIT(MPID_STATE_MPID_SEND);
+    return mpi_errno;
+  fn_fail:
+    goto fn_exit;
+}
+
+#undef FUNCNAME
 #define FUNCNAME MPID_Isend
 #undef FCNAME
 #define FCNAME MPL_QUOTE(FUNCNAME)
@@ -109,6 +157,53 @@ MPL_STATIC_INLINE_PREFIX int MPID_Isend(const void *buf,
     goto fn_exit;
 }
 
+#undef FUNCNAME
+#define FUNCNAME MPID_Isend
+#undef FCNAME
+#define FCNAME MPL_QUOTE(FUNCNAME)
+MPL_STATIC_INLINE_PREFIX int MPID_Isend_nocomm(const void *buf,
+                                         int count,
+                                         MPI_Datatype datatype,
+                                         int rank,
+                                         int tag,
+                                         int context_offset,
+                                         MPIR_Request ** request)
+{
+    int mpi_errno;
+    MPIR_FUNC_VERBOSE_STATE_DECL(MPID_STATE_MPID_ISEND);
+    MPIR_FUNC_VERBOSE_ENTER(MPID_STATE_MPID_ISEND);
+
+    if (unlikely(rank == MPI_PROC_NULL)) {
+        MPIR_Request *rreq = MPIR_Request_create(MPIR_REQUEST_KIND__SEND);
+        MPIR_Request_add_ref(rreq);
+        *request = rreq;
+        MPIDI_CH4U_request_complete(rreq);
+        mpi_errno = MPI_SUCCESS;
+        goto fn_exit;
+    }
+
+#ifndef MPIDI_CH4_EXCLUSIVE_SHM
+    mpi_errno = MPIDI_NM_mpi_isend_nocomm(buf, count, datatype, rank, tag, context_offset, request);
+#else
+    int r;
+    if ((r = MPIDI_CH4_rank_is_local(rank, NULL/* we assume !EXCLUSIVE_SHMEM */)))
+        mpi_errno =
+            MPIDI_SHM_mpi_isend(buf, count, datatype, rank, tag, NULL/* we assume !EXCLUSIVE_SHMEM */, context_offset, request);
+    else
+        mpi_errno =
+            MPIDI_NM_mpi_isend_nocomm(buf, count, datatype, rank, tag, context_offset, request);
+    if (mpi_errno == MPI_SUCCESS)
+        MPIDI_CH4I_REQUEST(*request, is_local) = r;
+#endif
+    if (mpi_errno != MPI_SUCCESS) {
+        MPIR_ERR_POP(mpi_errno);
+    }
+  fn_exit:
+    MPIR_FUNC_VERBOSE_EXIT(MPID_STATE_MPID_ISEND);
+    return mpi_errno;
+  fn_fail:
+    goto fn_exit;
+}
 
 #undef FUNCNAME
 #define FUNCNAME MPID_Rsend

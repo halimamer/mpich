@@ -69,7 +69,6 @@ int MPI_Recv(void *buf, int count, MPI_Datatype datatype, int source, int tag,
 {
     static const char FCNAME[] = "MPI_Recv";
     int mpi_errno = MPI_SUCCESS;
-    MPIR_Comm *comm_ptr = NULL;
     MPIR_Request * request_ptr = NULL;
     MPIR_FUNC_TERSE_STATE_DECL(MPID_STATE_MPI_RECV);
 
@@ -92,9 +91,6 @@ int MPI_Recv(void *buf, int count, MPI_Datatype datatype, int source, int tag,
     
 #   endif /* HAVE_ERROR_CHECKING */
     
-    /* Convert MPI object handles to object pointers */
-    MPIR_Comm_get_ptr( comm, comm_ptr );
-
     /* Validate parameters if error checking is enabled */
 #   ifdef HAVE_ERROR_CHECKING
     {
@@ -134,7 +130,7 @@ int MPI_Recv(void *buf, int count, MPI_Datatype datatype, int source, int tag,
     /* MT: Note that MPID_Recv may release the SINGLE_CS if it
        decides to block internally.  MPID_Recv in that case will
        re-aquire the SINGLE_CS before returnning */
-    mpi_errno = MPID_Recv(buf, count, datatype, source, tag, comm_ptr, 
+    mpi_errno = MPID_Recv_nocomm(buf, count, datatype, source, tag,
 			  MPIR_CONTEXT_INTRA_PT2PT, status, &request_ptr);
     if (mpi_errno != MPI_SUCCESS) goto fn_fail;
 
@@ -165,8 +161,7 @@ int MPI_Recv(void *buf, int count, MPI_Datatype datatype, int source, int tag,
 
             if (unlikely(MPIR_CVAR_ENABLE_FT &&
                         !MPIR_Request_is_complete(request_ptr) &&
-                        MPID_Request_is_anysource(request_ptr) &&
-                        !MPID_Comm_AS_enabled(request_ptr->comm))) {
+                        MPID_Request_is_anysource(request_ptr))) {
                 /* --BEGIN ERROR HANDLING-- */
                 MPID_Cancel_recv(request_ptr);
                 MPIR_STATUS_SET_CANCEL_BIT(request_ptr->status, FALSE);
@@ -198,10 +193,10 @@ int MPI_Recv(void *buf, int count, MPI_Datatype datatype, int source, int tag,
     {
 	mpi_errno = MPIR_Err_create_code(
 	    mpi_errno, MPIR_ERR_RECOVERABLE, FCNAME, __LINE__, MPI_ERR_OTHER, "**mpi_recv",
-	    "**mpi_recv %p %d %D %i %t %C %p", buf, count, datatype, source, tag, comm, status);
+	    "**mpi_recv %p %d %D %i %t %C %p", buf, count, datatype, source, tag, m, status);
     }
 #   endif
-    mpi_errno = MPIR_Err_return_comm( comm_ptr, FCNAME, mpi_errno );
+    mpi_errno = MPIR_Err_return_comm( NULL /* we should not arrive here */, FCNAME, mpi_errno );
     goto fn_exit;
     /* --END ERROR HANDLING-- */
 }

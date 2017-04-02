@@ -16,7 +16,7 @@
 #pragma _CRI duplicate MPI_Isend as PMPI_Isend
 #elif defined(HAVE_WEAK_ATTRIBUTE)
 int MPI_Isend(const void *buf, int count, MPI_Datatype datatype, int dest, int tag,
-              MPI_Comm comm, MPI_Request *request) __attribute__((weak,alias("PMPI_Isend")));
+              MPI_Request *request) __attribute__((weak,alias("PMPI_Isend")));
 #endif
 /* -- End Profiling Symbol Block */
 
@@ -59,10 +59,9 @@ Output Parameters:
 
 @*/
 int MPI_Isend(const void *buf, int count, MPI_Datatype datatype, int dest, int tag,
-	      MPI_Comm comm, MPI_Request *request)
+	      MPI_Request *request)
 {
     int mpi_errno = MPI_SUCCESS;
-    MPIR_Comm *comm_ptr = NULL;
     MPIR_Request *request_ptr = NULL;
     MPIR_FUNC_TERSE_STATE_DECL(MPID_STATE_MPI_ISEND);
 
@@ -82,19 +81,14 @@ int MPI_Isend(const void *buf, int count, MPI_Datatype datatype, int dest, int t
     }
 #   endif /* HAVE_ERROR_CHECKING */
     
-    /* Convert MPI object handles to object pointers */
-    MPIR_Comm_get_ptr( comm, comm_ptr );
 
     /* Validate parameters if error checking is enabled */
 #   ifdef HAVE_ERROR_CHECKING
     {
         MPID_BEGIN_ERROR_CHECKS;
         {
-            MPIR_Comm_valid_ptr( comm_ptr, mpi_errno, FALSE );
-            if (mpi_errno) goto fn_fail;
 	    
 	    MPIR_ERRTEST_COUNT(count, mpi_errno);
-	    MPIR_ERRTEST_SEND_RANK(comm_ptr, dest, mpi_errno);
 	    MPIR_ERRTEST_SEND_TAG(tag, mpi_errno);
 	    MPIR_ERRTEST_ARGNULL(request,"request",mpi_errno);
 
@@ -122,11 +116,11 @@ int MPI_Isend(const void *buf, int count, MPI_Datatype datatype, int dest, int t
 
     /* ... body of routine ...  */
     
-    mpi_errno = MPID_Isend(buf, count, datatype, dest, tag, comm_ptr,
+    mpi_errno = MPID_Isend_nocomm(buf, count, datatype, dest, tag,
 			   MPIR_CONTEXT_INTRA_PT2PT, &request_ptr);
     if (mpi_errno != MPI_SUCCESS) goto fn_fail;
 
-    MPII_SENDQ_REMEMBER(request_ptr,dest,tag,comm_ptr->context_id);
+    MPII_SENDQ_REMEMBER(request_ptr,dest,tag, 0 /* COMM_WORLD's context id*/);
 
     /* return the handle of the request to the user */
     /* MPIU_OBJ_HANDLE_PUBLISH is unnecessary for isend, lower-level access is
@@ -150,7 +144,7 @@ int MPI_Isend(const void *buf, int count, MPI_Datatype datatype, int dest, int t
 	    "**mpi_isend %p %d %D %i %t %C %p", buf, count, datatype, dest, tag, comm, request);
     }
 #   endif
-    mpi_errno = MPIR_Err_return_comm( comm_ptr, FCNAME, mpi_errno );
+    mpi_errno = MPIR_Err_return_comm( NULL /* we should not arrive here */, FCNAME, mpi_errno );
     goto fn_exit;
     /* --END ERROR HANDLING-- */
 }

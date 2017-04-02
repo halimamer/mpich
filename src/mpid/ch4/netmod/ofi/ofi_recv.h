@@ -115,6 +115,104 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_OFI_do_irecv(void *buf,
     goto fn_exit;
 }
 
+#undef FUNCNAME
+#define FUNCNAME MPIDI_OFI_do_irecv_nocomm
+#undef FCNAME
+#define FCNAME MPL_QUOTE(FUNCNAME)
+MPL_STATIC_INLINE_PREFIX int MPIDI_OFI_do_irecv_nocomm(void *buf,
+                                                int count,
+                                                MPI_Datatype datatype,
+                                                int rank,
+                                                int tag,
+                                                int context_offset,
+                                                MPIR_Request ** request, int mode, uint64_t flags)
+{
+    int mpi_errno = MPI_SUCCESS;
+    MPIR_Request *rreq = NULL;
+    uint64_t match_bits, mask_bits;
+    MPIR_Context_id_t context_id = 0 /* comm_world->recvcontext_id*/ + context_offset;
+    size_t data_sz;
+    int dt_contig;
+    MPI_Aint dt_true_lb;
+    MPIR_Datatype *dt_ptr;
+    struct fi_msg_tagged msg;
+    char *recv_buf;
+    MPIR_FUNC_VERBOSE_STATE_DECL(MPID_STATE_MPIDI_OFI_DO_IRECV);
+    MPIR_FUNC_VERBOSE_ENTER(MPID_STATE_MPIDI_OFI_DO_IRECV);
+
+    if (mode == MPIDI_OFI_ON_HEAP)      /* Branch should compile out */
+        MPIDI_OFI_REQUEST_CREATE(rreq, MPIR_REQUEST_KIND__RECV);
+    else if (mode == MPIDI_OFI_USE_EXISTING) {
+        rreq = *request;
+        rreq->kind = MPIR_REQUEST_KIND__RECV;
+    }
+
+    *request = rreq;
+
+    match_bits = MPIDI_OFI_init_recvtag(&mask_bits, context_id, rank, tag);
+
+    MPIDI_Datatype_get_info(count, datatype, dt_contig, data_sz, dt_ptr, dt_true_lb);
+    MPIDI_OFI_REQUEST(rreq, datatype) = datatype;
+    dtype_add_ref_if_not_builtin(datatype);
+
+    recv_buf = (char *) buf + dt_true_lb;
+
+    if (!dt_contig) {
+        MPIDI_OFI_REQUEST(rreq, noncontig) =
+            (MPIDI_OFI_noncontig_t *) MPL_malloc(data_sz + sizeof(MPID_Segment));
+        MPIR_ERR_CHKANDJUMP1(MPIDI_OFI_REQUEST(rreq, noncontig->pack_buffer) == NULL, mpi_errno,
+                             MPI_ERR_OTHER, "**nomem", "**nomem %s", "Recv Pack Buffer alloc");
+        recv_buf = MPIDI_OFI_REQUEST(rreq, noncontig->pack_buffer);
+        MPID_Segment_init(buf, count, datatype, &MPIDI_OFI_REQUEST(rreq, noncontig->segment), 0);
+    }
+    else
+        MPIDI_OFI_REQUEST(rreq, noncontig) = NULL;
+
+    MPIDI_OFI_REQUEST(rreq, util_id) = context_id;
+
+    if (unlikely(data_sz > MPIDI_Global.max_send)) {
+        MPIDI_OFI_REQUEST(rreq, event_id) = MPIDI_OFI_EVENT_RECV_HUGE;
+        data_sz = MPIDI_Global.max_send;
+    }
+    else
+        MPIDI_OFI_REQUEST(rreq, event_id) = MPIDI_OFI_EVENT_RECV;
+
+    if (!flags) /* Branch should compile out */
+        MPIDI_OFI_CALL_RETRY(fi_trecv(MPIDI_OFI_EP_RX_TAG(0),
+                                      recv_buf,
+                                      data_sz,
+                                      NULL,
+                                      (MPI_ANY_SOURCE ==
+                                       rank) ? FI_ADDR_UNSPEC : MPIDI_OFI_nocomm_to_phys(rank,
+                                                                                       MPIDI_OFI_API_TAG),
+                                      match_bits, mask_bits,
+                                      (void *) &(MPIDI_OFI_REQUEST(rreq, context))), trecv,
+                             MPIDI_OFI_CALL_LOCK);
+    else {
+        MPIDI_OFI_REQUEST(rreq, util.iov).iov_base = recv_buf;
+        MPIDI_OFI_REQUEST(rreq, util.iov).iov_len = data_sz;
+
+        msg.msg_iov = &MPIDI_OFI_REQUEST(rreq, util.iov);
+        msg.desc = NULL;
+        msg.iov_count = 1;
+        msg.tag = match_bits;
+        msg.ignore = mask_bits;
+        msg.context = (void *) &(MPIDI_OFI_REQUEST(rreq, context));
+        msg.data = 0;
+        msg.addr = FI_ADDR_UNSPEC;
+
+        MPIDI_OFI_CALL_RETRY(fi_trecvmsg(MPIDI_OFI_EP_RX_TAG(0), &msg, flags), trecv,
+                             MPIDI_OFI_CALL_LOCK);
+    }
+
+  fn_exit:
+    MPIR_FUNC_VERBOSE_EXIT(MPID_STATE_MPIDI_OFI_DO_IRECV);
+    return mpi_errno;
+  fn_fail:
+    goto fn_exit;
+}
+
+
 
 #undef FUNCNAME
 #define FUNCNAME MPIDI_NM_mpi_recv
@@ -145,6 +243,36 @@ fn_exit:
     MPIR_FUNC_VERBOSE_EXIT(MPID_STATE_MPIDI_NM_MPI_RECV);
     return mpi_errno;
 }
+
+#undef FUNCNAME
+#define FUNCNAME MPIDI_NM_mpi_recv_nocomm
+#undef FCNAME
+#define FCNAME MPL_QUOTE(FUNCNAME)
+MPL_STATIC_INLINE_PREFIX int MPIDI_NM_mpi_recv_nocomm(void *buf,
+                                               int count,
+                                               MPI_Datatype datatype,
+                                               int rank,
+                                               int tag,
+                                               int context_offset,
+                                               MPI_Status * status, MPIR_Request ** request)
+{
+    int mpi_errno;
+    MPIR_FUNC_VERBOSE_STATE_DECL(MPID_STATE_MPIDI_NM_MPI_RECV);
+    MPIR_FUNC_VERBOSE_ENTER(MPID_STATE_MPIDI_NM_MPI_RECV);
+
+    if (!MPIDI_OFI_ENABLE_TAGGED) {
+        mpi_errno = MPIDIG_mpi_recv(buf, count, datatype, rank, tag, NULL /* enable tagged */, context_offset, status, request);
+        goto fn_exit;
+    }
+
+    mpi_errno = MPIDI_OFI_do_irecv_nocomm(buf, count, datatype, rank, tag,
+                                   context_offset, request, MPIDI_OFI_ON_HEAP, 0ULL);
+
+fn_exit:
+    MPIR_FUNC_VERBOSE_EXIT(MPID_STATE_MPIDI_NM_MPI_RECV);
+    return mpi_errno;
+}
+
 
 #undef FUNCNAME
 #define FUNCNAME MPIDI_NM_mpi_recv_init
@@ -258,6 +386,36 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_NM_mpi_irecv(void *buf,
     MPIR_FUNC_VERBOSE_EXIT(MPID_STATE_MPIDI_NM_MPI_IRECV);
     return mpi_errno;
 }
+
+#undef FUNCNAME
+#define FUNCNAME MPIDI_NM_mpi_irecv_nocomm
+#undef FCNAME
+#define FCNAME MPL_QUOTE(FUNCNAME)
+MPL_STATIC_INLINE_PREFIX int MPIDI_NM_mpi_irecv_nocomm(void *buf,
+                                                int count,
+                                                MPI_Datatype datatype,
+                                                int rank,
+                                                int tag,
+                                                int context_offset,
+                                                MPIR_Request ** request)
+{
+    int mpi_errno = MPI_SUCCESS;
+    MPIR_FUNC_VERBOSE_STATE_DECL(MPID_STATE_MPIDI_NM_MPI_IRECV);
+    MPIR_FUNC_VERBOSE_ENTER(MPID_STATE_MPIDI_NM_MPI_IRECV);
+
+    if (!MPIDI_OFI_ENABLE_TAGGED) {
+        mpi_errno = MPIDIG_mpi_irecv(buf, count, datatype, rank, tag, NULL /* enable tagged */, context_offset, request);
+        goto fn_exit;
+    }
+
+    mpi_errno = MPIDI_OFI_do_irecv_nocomm(buf, count, datatype, rank, tag,
+                                   context_offset, request, MPIDI_OFI_ON_HEAP, 0ULL);
+
+  fn_exit:
+    MPIR_FUNC_VERBOSE_EXIT(MPID_STATE_MPIDI_NM_MPI_IRECV);
+    return mpi_errno;
+}
+
 
 #undef FUNCNAME
 #define FUNCNAME MPIDI_NM_mpi_cancel_recv

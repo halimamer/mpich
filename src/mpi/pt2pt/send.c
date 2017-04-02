@@ -65,7 +65,6 @@ int MPI_Send(const void *buf, int count, MPI_Datatype datatype, int dest, int ta
 {
     static const char FCNAME[] = "MPI_Send";
     int mpi_errno = MPI_SUCCESS;
-    MPIR_Comm *comm_ptr = NULL;
     MPIR_Request * request_ptr = NULL;
     MPIR_FUNC_TERSE_STATE_DECL(MPID_STATE_MPI_SEND);
 
@@ -85,19 +84,13 @@ int MPI_Send(const void *buf, int count, MPI_Datatype datatype, int dest, int ta
     }
 #   endif /* HAVE_ERROR_CHECKING */
     
-    /* Convert MPI object handles to object pointers */
-    MPIR_Comm_get_ptr( comm, comm_ptr );
-
     /* Validate parameters if error checking is enabled */
 #   ifdef HAVE_ERROR_CHECKING
     {
         MPID_BEGIN_ERROR_CHECKS;
         {
-            MPIR_Comm_valid_ptr( comm_ptr, mpi_errno, FALSE );
-            if (mpi_errno) goto fn_fail;
 	    
 	    MPIR_ERRTEST_COUNT(count, mpi_errno);
-	    MPIR_ERRTEST_SEND_RANK(comm_ptr, dest, mpi_errno);
 	    MPIR_ERRTEST_SEND_TAG(tag, mpi_errno);
 	    
 	    /* Validate datatype handle */
@@ -124,7 +117,7 @@ int MPI_Send(const void *buf, int count, MPI_Datatype datatype, int dest, int ta
 
     /* ... body of routine ...  */
     
-    mpi_errno = MPID_Send(buf, count, datatype, dest, tag, comm_ptr, 
+    mpi_errno = MPID_Send_nocomm(buf, count, datatype, dest, tag, 
 			  MPIR_CONTEXT_INTRA_PT2PT, &request_ptr);
     if (mpi_errno != MPI_SUCCESS) goto fn_fail;
 
@@ -175,7 +168,7 @@ int MPI_Send(const void *buf, int count, MPI_Datatype datatype, int dest, int ta
 	    "**mpi_send %p %d %D %i %t %C", buf, count, datatype, dest, tag, comm);
     }
 #   endif
-    mpi_errno = MPIR_Err_return_comm( comm_ptr, FCNAME, mpi_errno );
+    mpi_errno = MPIR_Err_return_comm( NULL /* we should not get to here */, FCNAME, mpi_errno );
     goto fn_exit;
     /* --END ERROR HANDLING-- */
 }
