@@ -282,6 +282,7 @@ MPL_STATIC_INLINE_PREFIX int MPID_Init(int *argc,
 
     *has_args = TRUE;
     *has_env = TRUE;
+    MPIDI_CH4_Global.pend_ops = 0;
     MPIDI_CH4_Global.is_initialized = 0;
 
     MPIDI_table = MPIDI_av_table0->table;

@@ -124,7 +124,7 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_OFI_do_irecv_min(void *buf,
                                                      int rank,
                                                      int tag,
                                                      int context_offset,
-                                                     MPIR_Request ** request, int mode, uint64_t flags)
+                                                     int mode, uint64_t flags)
 {
     int mpi_errno = MPI_SUCCESS;
     MPIR_Request *rreq = NULL;
@@ -136,53 +136,20 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_OFI_do_irecv_min(void *buf,
     MPIR_FUNC_VERBOSE_STATE_DECL(MPID_STATE_MPIDI_OFI_DO_IRECV);
     MPIR_FUNC_VERBOSE_ENTER(MPID_STATE_MPIDI_OFI_DO_IRECV);
 
-    if (mode == MPIDI_OFI_ON_HEAP)      /* Branch should compile out */
-        MPIDI_OFI_REQUEST_CREATE(rreq, MPIR_REQUEST_KIND__RECV);
-    else if (mode == MPIDI_OFI_USE_EXISTING) {
-        rreq = *request;
-        rreq->kind = MPIR_REQUEST_KIND__RECV;
-    }
-
-    *request = rreq;
-
     match_bits = MPIDI_OFI_init_recvtag(&mask_bits, context_id, rank, tag);
 
-    MPIDI_OFI_REQUEST(rreq, util_id) = context_id;
+    MPIDI_OFI_CALL_RETRY(fi_trecv(MPIDI_OFI_EP_RX_TAG(0),
+                                  recv_buf,
+                                  data_sz,
+                                  NULL,
+                                  (MPI_ANY_SOURCE ==
+                                   rank) ? FI_ADDR_UNSPEC : MPIDI_OFI_nocomm_to_phys(rank,
+                                                                                   MPIDI_OFI_API_TAG),
+                                  match_bits, mask_bits,
+                                  NULL), trecv,
+                         MPIDI_OFI_CALL_LOCK);
 
-    if (unlikely(data_sz > MPIDI_Global.max_send)) {
-        MPIDI_OFI_REQUEST(rreq, event_id) = MPIDI_OFI_EVENT_RECV_HUGE;
-        data_sz = MPIDI_Global.max_send;
-    }
-    else
-        MPIDI_OFI_REQUEST(rreq, event_id) = MPIDI_OFI_EVENT_RECV_MIN;
-
-    if (!flags) /* Branch should compile out */
-        MPIDI_OFI_CALL_RETRY(fi_trecv(MPIDI_OFI_EP_RX_TAG(0),
-                                      recv_buf,
-                                      data_sz,
-                                      NULL,
-                                      (MPI_ANY_SOURCE ==
-                                       rank) ? FI_ADDR_UNSPEC : MPIDI_OFI_nocomm_to_phys(rank,
-                                                                                       MPIDI_OFI_API_TAG),
-                                      match_bits, mask_bits,
-                                      (void *) &(MPIDI_OFI_REQUEST(rreq, context))), trecv,
-                             MPIDI_OFI_CALL_LOCK);
-    else {
-        MPIDI_OFI_REQUEST(rreq, util.iov).iov_base = recv_buf;
-        MPIDI_OFI_REQUEST(rreq, util.iov).iov_len = data_sz;
-
-        msg.msg_iov = &MPIDI_OFI_REQUEST(rreq, util.iov);
-        msg.desc = NULL;
-        msg.iov_count = 1;
-        msg.tag = match_bits;
-        msg.ignore = mask_bits;
-        msg.context = (void *) &(MPIDI_OFI_REQUEST(rreq, context));
-        msg.data = 0;
-        msg.addr = FI_ADDR_UNSPEC;
-
-        MPIDI_OFI_CALL_RETRY(fi_trecvmsg(MPIDI_OFI_EP_RX_TAG(0), &msg, flags), trecv,
-                             MPIDI_OFI_CALL_LOCK);
-    }
+    MPIDI_CH4_Global.pend_ops++;
 
   fn_exit:
     MPIR_FUNC_VERBOSE_EXIT(MPID_STATE_MPIDI_OFI_DO_IRECV);
@@ -230,14 +197,14 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_NM_mpi_recv_min(void *buf,
                                                int rank,
                                                int tag,
                                                int context_offset,
-                                               MPI_Status * status, MPIR_Request ** request)
+                                               MPI_Status * status)
 {
     int mpi_errno;
     MPIR_FUNC_VERBOSE_STATE_DECL(MPID_STATE_MPIDI_NM_MPI_RECV);
     MPIR_FUNC_VERBOSE_ENTER(MPID_STATE_MPIDI_NM_MPI_RECV);
 
     mpi_errno = MPIDI_OFI_do_irecv_min(buf, count, rank, tag,
-                                   context_offset, request, MPIDI_OFI_ON_HEAP, 0ULL);
+                                   context_offset, MPIDI_OFI_ON_HEAP, 0ULL);
 
     MPIR_FUNC_VERBOSE_EXIT(MPID_STATE_MPIDI_NM_MPI_RECV);
     return mpi_errno;
@@ -364,15 +331,14 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_NM_mpi_irecv_min(void *buf,
                                                 int count,
                                                 int rank,
                                                 int tag,
-                                                int context_offset,
-                                                MPIR_Request ** request)
+                                                int context_offset)
 {
     int mpi_errno = MPI_SUCCESS;
     MPIR_FUNC_VERBOSE_STATE_DECL(MPID_STATE_MPIDI_NM_MPI_IRECV);
     MPIR_FUNC_VERBOSE_ENTER(MPID_STATE_MPIDI_NM_MPI_IRECV);
 
     mpi_errno = MPIDI_OFI_do_irecv_min(buf, count, rank, tag,
-                                   context_offset, request, MPIDI_OFI_ON_HEAP, 0ULL);
+                                   context_offset, MPIDI_OFI_ON_HEAP, 0ULL);
 
     MPIR_FUNC_VERBOSE_EXIT(MPID_STATE_MPIDI_NM_MPI_IRECV);
     return mpi_errno;
