@@ -79,9 +79,9 @@ MPL_STATIC_INLINE_PREFIX int MPID_Send_min(const void *buf,
     mpi_errno = MPIDI_NM_mpi_send_min(buf, count, rank, tag, context_offset);
 #else
     int r;
-    if ((r = MPIDI_CH4_rank_is_local(rank, NULL /* we assume !EXCLUSIVE_SHMEM */)))
+    if (r = MPIDI_CH4_rank_is_local_nocomm(rank))
         mpi_errno =
-            MPIDI_SHM_mpi_send(buf, count, MPI_DATATYPE_NULL, rank, tag, NULL /* we assume !EXCLUSIVE_SHMEM */, context_offset, request);
+            MPIDI_SHM_mpi_send(buf, count, MPI_DATATYPE_NULL, rank, tag, NULL /* we assume !EXCLUSIVE_SHMEM */, context_offset, NULL);
     else
         mpi_errno =
             MPIDI_NM_mpi_send_min(buf, count, rank, tag, context_offset);
@@ -156,7 +156,7 @@ MPL_STATIC_INLINE_PREFIX int MPID_Isend_min(const void *buf,
     mpi_errno = MPIDI_NM_mpi_isend_min(buf, count, rank, tag, context_offset);
 #else
     int r;
-    if ((r = MPIDI_CH4_rank_is_local(rank, NULL)))
+    if (r = MPIDI_CH4_rank_is_local_nocomm(rank))
         mpi_errno =
             MPIDI_SHM_mpi_isend(buf, count, MPI_DATATYPE_NULL, rank, tag, NULL, context_offset, NULL);
     else

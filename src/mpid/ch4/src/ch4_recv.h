@@ -121,7 +121,29 @@ MPL_STATIC_INLINE_PREFIX int MPID_Recv_min(void *buf,
     mpi_errno =
         MPIDI_NM_mpi_recv_min(buf, count, rank, tag, context_offset, status);
 #else
-#error "Disable shared memory"
+    if (unlikely(rank == MPI_ANY_SOURCE)) {
+        mpi_errno =
+            MPIDI_SHM_mpi_irecv(buf, count, MPI_DATATYPE_NULL, rank, tag, NULL, context_offset, NULL);
+
+        if (mpi_errno != MPI_SUCCESS) {
+            MPIR_ERR_POP(mpi_errno);
+        }
+
+        mpi_errno = MPIDI_NM_mpi_irecv_min(buf, count, rank, tag, context_offset);
+
+        if (mpi_errno != MPI_SUCCESS) {
+            MPIR_ERR_POP(mpi_errno);
+        }
+    }
+    else {
+        int r;
+        if (r = MPIDI_CH4_rank_is_local_nocomm(rank))
+            mpi_errno =
+                MPIDI_SHM_mpi_irecv(buf, count, MPI_DATATYPE_NULL, rank, tag, NULL, context_offset, NULL);
+        else
+            mpi_errno =
+                MPIDI_NM_mpi_irecv_min(buf, count, rank, tag, context_offset);
+    }
 #endif
 
     if (mpi_errno != MPI_SUCCESS) {
@@ -368,7 +390,29 @@ MPL_STATIC_INLINE_PREFIX int MPID_Irecv_min(void *buf,
 #ifndef MPIDI_CH4_EXCLUSIVE_SHM
     mpi_errno = MPIDI_NM_mpi_irecv_min(buf, count, rank, tag, context_offset);
 #else
-#error "Disable shared memory and then rebuild"
+    if (unlikely(rank == MPI_ANY_SOURCE)) {
+        mpi_errno =
+            MPIDI_SHM_mpi_irecv(buf, count, MPI_DATATYPE_NULL, rank, tag, NULL, context_offset, NULL);
+
+        if (mpi_errno != MPI_SUCCESS) {
+            MPIR_ERR_POP(mpi_errno);
+        }
+
+        mpi_errno = MPIDI_NM_mpi_irecv_min(buf, count, rank, tag, context_offset);
+
+        if (mpi_errno != MPI_SUCCESS) {
+            MPIR_ERR_POP(mpi_errno);
+        }
+    }
+    else {
+        int r;
+        if (r = MPIDI_CH4_rank_is_local_nocomm(rank))
+            mpi_errno =
+                MPIDI_SHM_mpi_irecv(buf, count, MPI_DATATYPE_NULL, rank, tag, NULL, context_offset, NULL);
+        else
+            mpi_errno =
+                MPIDI_NM_mpi_irecv_min(buf, count, rank, tag, context_offset);
+    }
 #endif
     if (mpi_errno != MPI_SUCCESS) {
         MPIR_ERR_POP(mpi_errno);
