@@ -375,7 +375,7 @@ int MPI_Waitall(int count, MPI_Request array_of_requests[],
     
     /* ... body of routine ...  */
 
-    mpi_errno = MPIR_Waitall_impl(count, array_of_requests, array_of_statuses);
+    mpi_errno = MPID_Wait();
     if (mpi_errno) goto fn_fail;
 
     /* ... end of body of routine ... */

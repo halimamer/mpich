@@ -15,8 +15,7 @@
 #elif defined(HAVE_PRAGMA_CRI_DUP)
 #pragma _CRI duplicate MPI_Isend as PMPI_Isend
 #elif defined(HAVE_WEAK_ATTRIBUTE)
-int MPI_Isend(const void *buf, int count, int dest, int tag,
-              MPI_Request *request) __attribute__((weak,alias("PMPI_Isend")));
+int MPI_Isend(const void *buf, int count, int dest, int tag) __attribute__((weak,alias("PMPI_Isend")));
 #endif
 /* -- End Profiling Symbol Block */
 
@@ -57,11 +56,9 @@ Output Parameters:
 .N MPI_ERR_EXHAUSTED
 
 @*/
-int MPI_Isend(const void *buf, int count, int dest, int tag,
-	      MPI_Request *request)
+int MPI_Isend(const void *buf, int count, int dest, int tag)
 {
     int mpi_errno = MPI_SUCCESS;
-    MPIR_Request *request_ptr = NULL;
     MPIR_FUNC_TERSE_STATE_DECL(MPID_STATE_MPI_ISEND);
 
     MPIR_ERRTEST_INITIALIZED_ORDIE();
@@ -89,7 +86,6 @@ int MPI_Isend(const void *buf, int count, int dest, int tag,
 	    
 	    MPIR_ERRTEST_COUNT(count, mpi_errno);
 	    MPIR_ERRTEST_SEND_TAG(tag, mpi_errno);
-	    MPIR_ERRTEST_ARGNULL(request,"request",mpi_errno);
 
         }
         MPID_END_ERROR_CHECKS;
@@ -98,17 +94,13 @@ int MPI_Isend(const void *buf, int count, int dest, int tag,
 
     /* ... body of routine ...  */
     
-    mpi_errno = MPID_Isend_min(buf, count, dest, tag,
-			   MPIR_CONTEXT_INTRA_PT2PT, &request_ptr);
+    mpi_errno = MPID_Isend_min(buf, count, dest, tag, MPIR_CONTEXT_INTRA_PT2PT);
     if (mpi_errno != MPI_SUCCESS) goto fn_fail;
-
-    MPII_SENDQ_REMEMBER(request_ptr,dest,tag, 0 /* COMM_WORLD's context id*/);
 
     /* return the handle of the request to the user */
     /* MPIU_OBJ_HANDLE_PUBLISH is unnecessary for isend, lower-level access is
      * responsible for its own consistency, while upper-level field access is
      * controlled by the completion counter */
-    *request = request_ptr->handle;
 
     /* ... end of body of routine ... */
     
@@ -123,7 +115,7 @@ int MPI_Isend(const void *buf, int count, int dest, int tag,
     {
 	mpi_errno = MPIR_Err_create_code(
 	    mpi_errno, MPIR_ERR_RECOVERABLE, FCNAME, __LINE__, MPI_ERR_OTHER, "**mpi_isend",
-	    "**mpi_isend %p %d %i %t %p", buf, count, dest, tag, request);
+	    "**mpi_isend %p %d %i %t", buf, count, dest, tag);
     }
 #   endif
     mpi_errno = MPIR_Err_return_comm( NULL /* we should not arrive here */, FCNAME, mpi_errno );

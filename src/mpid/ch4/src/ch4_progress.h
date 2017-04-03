@@ -208,4 +208,27 @@ MPL_STATIC_INLINE_PREFIX int MPID_Progress_deactivate(int id)
     return mpi_errno;
 }
 
+#undef FUNCNAME
+#define FUNCNAME MPID_Wait
+#undef FCNAME
+#define FCNAME MPL_QUOTE(FUNCNAME)
+MPL_STATIC_INLINE_PREFIX int MPID_Wait()
+{
+    int mpi_errno = MPI_SUCCESS;
+    MPIR_FUNC_VERBOSE_STATE_DECL(MPID_STATE_MPID_SEND);
+    MPIR_FUNC_VERBOSE_ENTER(MPID_STATE_MPID_WAIT);
+
+    while (MPIDI_CH4_Global.pend_ops > 0) {
+        mpi_errno = MPIDI_NM_progress_noreq(MPIDI_CH4_Global.netmod_context[0], 0);
+        if (mpi_errno != MPI_SUCCESS)
+            goto fn_fail;
+    }
+
+  fn_exit:
+    MPIR_FUNC_VERBOSE_EXIT(MPID_STATE_MPID_WAIT);
+    return mpi_errno;
+  fn_fail:
+    goto fn_exit;
+}
+
 #endif /* CH4_PROGRESS_H_INCLUDED */

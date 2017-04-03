@@ -21,14 +21,6 @@
 #define MPIDI_OFI_SENDARGS buf,count,datatype,rank,tag, \
                  comm,context_offset,request
 
-#define MPIDI_OFI_SEND_NOCOMM_PARAMS const void *buf,int count,MPI_Datatype datatype, \
-    int rank,int tag,                               \
-    int context_offset,MPIR_Request **request
-
-#define MPIDI_OFI_SEND_NOCOMM_ARGS buf,count,datatype,rank,tag, \
-                 context_offset,request
-
-
 #undef FUNCNAME
 #define FUNCNAME MPIDI_OFI_send_lightweight
 #undef FCNAME
@@ -491,26 +483,17 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_OFI_send(MPIDI_OFI_SENDPARAMS, int noreq, uin
 #define FCNAME MPL_QUOTE(FUNCNAME)
 MPL_STATIC_INLINE_PREFIX int MPIDI_OFI_send_min(const void *buf,int count,
     int rank, int tag,
-    int context_offset, MPIR_Request **request, int noreq, uint64_t syncflag)
+    int context_offset, int noreq, uint64_t syncflag)
 {
     int mpi_errno;
-
     MPIR_FUNC_VERBOSE_STATE_DECL(MPID_STATE_MPIDI_OFI_SEND);
     MPIR_FUNC_VERBOSE_ENTER(MPID_STATE_MPIDI_OFI_SEND);
 
-    if (likely(!syncflag && (count <= MPIDI_Global.max_buffered_send))) {
-        if (noreq)
-            mpi_errno = MPIDI_OFI_send_lightweight_min((char *) buf, count,
+    if (likely(!syncflag && (count <= MPIDI_Global.max_buffered_send)))
+        mpi_errno = MPIDI_OFI_send_lightweight_min((char *) buf, count,
                                                    rank, tag, context_offset);
-        else
-            mpi_errno = MPIDI_OFI_send_lightweight_request_min((char *) buf, count,
-                                                           rank, tag, context_offset,
-                                                           request);
-    } else {
-        mpi_errno = MPIDI_OFI_send_normal_min(buf, count, rank, tag, NULL /* we assume eager contig */,
-                                          context_offset, request,
-                                          count, syncflag);
-    }
+    else
+        MPID_Abort(NULL, MPI_ERR_OTHER, 1, "ERROR: Expected a small contiguous message ");
 
     MPIR_FUNC_VERBOSE_EXIT(MPID_STATE_MPIDI_OFI_SEND);
     return mpi_errno;
@@ -594,14 +577,14 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_NM_mpi_send(MPIDI_OFI_SENDPARAMS)
 #define FCNAME MPL_QUOTE(FUNCNAME)
 MPL_STATIC_INLINE_PREFIX int MPIDI_NM_mpi_send_min(const void *buf,int count,
                                                     int rank, int tag,
-                                                    int context_offset, MPIR_Request **request)
+                                                    int context_offset)
 {
     int mpi_errno;
     MPIR_FUNC_VERBOSE_STATE_DECL(MPID_STATE_MPIDI_NM_MPI_SEND_MIN);
     MPIR_FUNC_VERBOSE_ENTER(MPID_STATE_MPIDI_NM_MPI_SEND_MIN);
 
     mpi_errno = MPIDI_OFI_send_min(buf, count, rank, tag,
-                 context_offset, request, 1, 0ULL);
+                 context_offset, 1, 0ULL);
 
     MPIR_FUNC_VERBOSE_EXIT(MPID_STATE_MPIDI_NM_MPI_SEND_MIN);
     return mpi_errno;
@@ -658,15 +641,14 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_NM_mpi_isend(MPIDI_OFI_SENDPARAMS)
 #define FCNAME MPL_QUOTE(FUNCNAME)
 MPL_STATIC_INLINE_PREFIX int MPIDI_NM_mpi_isend_min(const void *buf, int count,
                                                      int rank, int tag,
-                                                     int context_offset, MPIR_Request **request)
+                                                     int context_offset)
 {
     int mpi_errno;
     MPIR_FUNC_VERBOSE_STATE_DECL(MPID_STATE_MPIDI_NM_MPI_ISEND);
     MPIR_FUNC_VERBOSE_ENTER(MPID_STATE_MPIDI_NM_MPI_ISEND);
 
     mpi_errno = MPIDI_OFI_send_min(buf, count, rank, tag,
-                                    context_offset, request, 0, 0ULL);
-
+                                    context_offset, 0, 0ULL);
     MPIR_FUNC_VERBOSE_EXIT(MPID_STATE_MPIDI_NM_MPI_ISEND);
     return mpi_errno;
 }
