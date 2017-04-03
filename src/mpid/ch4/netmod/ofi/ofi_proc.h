@@ -26,4 +26,17 @@ static inline int MPIDI_NM_rank_is_local(int rank, MPIR_Comm * comm)
     return ret;
 }
 
+static inline int MPIDI_NM_rank_is_local_nocomm(int rank)
+{
+    int ret;
+
+    MPIR_FUNC_VERBOSE_STATE_DECL(MPID_STATE_MPIDI_NM_RANK_IS_LOCAL);
+    MPIR_FUNC_VERBOSE_ENTER(MPID_STATE_MPIDI_NM_RANK_IS_LOCAL);
+
+    ret = MPIDI_CH4U_rank_is_local_nocomm(rank);
+
+    MPIR_FUNC_VERBOSE_EXIT(MPID_STATE_MPIDI_NM_RANK_IS_LOCAL);
+    return ret;
+}
+
 #endif /* OFI_PROC_H_INCLUDED */
