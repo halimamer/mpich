@@ -75,11 +75,6 @@ MPL_STATIC_INLINE_PREFIX int MPID_Send_min(const void *buf,
     MPIR_FUNC_VERBOSE_STATE_DECL(MPID_STATE_MPID_SEND_MIN);
     MPIR_FUNC_VERBOSE_ENTER(MPID_STATE_MPID_SEND_MIN);
 
-    if (unlikely(rank == MPI_PROC_NULL)) {
-        mpi_errno = MPI_SUCCESS;
-        goto fn_exit;
-    }
-
 #ifndef MPIDI_CH4_EXCLUSIVE_SHM
     mpi_errno = MPIDI_NM_mpi_send_min(buf, count, rank, tag, context_offset);
 #else
@@ -153,11 +148,6 @@ MPL_STATIC_INLINE_PREFIX int MPID_Isend_min(const void *buf,
     int mpi_errno;
     MPIR_FUNC_VERBOSE_STATE_DECL(MPID_STATE_MPID_ISEND_MIN);
     MPIR_FUNC_VERBOSE_ENTER(MPID_STATE_MPID_ISEND_MIN);
-
-    if (unlikely(rank == MPI_PROC_NULL)) {
-        mpi_errno = MPI_SUCCESS;
-        goto fn_exit;
-    }
 
 #ifndef MPIDI_CH4_EXCLUSIVE_SHM
     mpi_errno = MPIDI_NM_mpi_isend_min(buf, count, rank, tag, context_offset);

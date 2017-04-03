@@ -117,11 +117,6 @@ MPL_STATIC_INLINE_PREFIX int MPID_Recv_min(void *buf,
     MPIR_FUNC_VERBOSE_STATE_DECL(MPID_STATE_MPID_RECV_MIN);
     MPIR_FUNC_VERBOSE_ENTER(MPID_STATE_MPID_RECV_MIN);
 
-    if (unlikely(rank == MPI_PROC_NULL)) {
-         mpi_errno = MPI_SUCCESS;
-        goto fn_exit;
-    }
-
 #ifndef MPIDI_CH4_EXCLUSIVE_SHM
     mpi_errno =
         MPIDI_NM_mpi_recv_min(buf, count, rank, tag, context_offset, status);
@@ -369,11 +364,6 @@ MPL_STATIC_INLINE_PREFIX int MPID_Irecv_min(void *buf,
     int mpi_errno;
     MPIR_FUNC_VERBOSE_STATE_DECL(MPID_STATE_MPID_IRECV);
     MPIR_FUNC_VERBOSE_ENTER(MPID_STATE_MPID_IRECV);
-
-    if (unlikely(rank == MPI_PROC_NULL)) {
-        mpi_errno = MPI_SUCCESS;
-        goto fn_exit;
-    }
 
 #ifndef MPIDI_CH4_EXCLUSIVE_SHM
     mpi_errno = MPIDI_NM_mpi_irecv_min(buf, count, rank, tag, context_offset);
