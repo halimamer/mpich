@@ -214,9 +214,9 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_OFI_send_normal(MPIDI_OFI_SENDPARAMS,
     else
         MPIDI_OFI_REQUEST(sreq, noncontig) = NULL;
 
-    if (data_sz <= MPIDI_Global.max_buffered_send) {
+    if (data_sz <= 64) {
         mpi_errno =
-            MPIDI_OFI_send_handler(MPIDI_OFI_EP_TX_TAG(0), send_buf, data_sz, NULL, comm->rank,
+            MPIDI_OFI_send_handler(MPIDI_Global.ep, send_buf, data_sz, NULL, comm->rank,
                                    MPIDI_OFI_comm_to_phys(comm, rank, MPIDI_OFI_API_TAG),
                                    match_bits, NULL, MPIDI_OFI_DO_INJECT,
                                    MPIDI_OFI_CALL_LOCK);
@@ -226,7 +226,7 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_OFI_send_normal(MPIDI_OFI_SENDPARAMS,
     }
     else if (data_sz <= MPIDI_Global.max_send) {
         mpi_errno =
-            MPIDI_OFI_send_handler(MPIDI_OFI_EP_TX_TAG(0), send_buf, data_sz, NULL, comm->rank,
+            MPIDI_OFI_send_handler(MPIDI_Global.ep, send_buf, data_sz, NULL, comm->rank,
                                    MPIDI_OFI_comm_to_phys(comm, rank, MPIDI_OFI_API_TAG),
                                    match_bits, (void *) &(MPIDI_OFI_REQUEST(sreq, context)),
                                    MPIDI_OFI_DO_SEND, MPIDI_OFI_CALL_LOCK);
@@ -281,7 +281,7 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_OFI_send_normal(MPIDI_OFI_SENDPARAMS,
         MPIR_Assert(cntr->counter != USHRT_MAX);
         MPIDI_OFI_REQUEST(sreq, util_comm) = comm;
         MPIDI_OFI_REQUEST(sreq, util_id) = rank;
-        mpi_errno = MPIDI_OFI_send_handler(MPIDI_OFI_EP_TX_TAG(0), send_buf,
+        mpi_errno = MPIDI_OFI_send_handler(MPIDI_Global.ep, send_buf,
                                            MPIDI_Global.max_send,
                                            NULL,
                                            comm->rank,
