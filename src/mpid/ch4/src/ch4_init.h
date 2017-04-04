@@ -283,6 +283,8 @@ MPL_STATIC_INLINE_PREFIX int MPID_Init(int *argc,
     *has_env = TRUE;
     MPIDI_CH4_Global.is_initialized = 0;
 
+    MPIDI_table = MPIDI_av_table0->table;
+
   fn_exit:
     MPIR_FUNC_VERBOSE_EXIT(MPID_STATE_MPID_INIT);
     return mpi_errno;
