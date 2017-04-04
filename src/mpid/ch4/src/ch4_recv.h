@@ -354,7 +354,29 @@ MPL_STATIC_INLINE_PREFIX int MPID_Irecv_noreq(void *buf,
 #ifndef MPIDI_CH4_EXCLUSIVE_SHM
     mpi_errno = MPIDI_NM_mpi_irecv_noreq(buf, count, datatype, rank, tag, comm, context_offset);
 #else
-#error "Disable shared memory and then rebuild"
+    if (unlikely(rank == MPI_ANY_SOURCE)) {
+        mpi_errno =
+            MPIDI_SHM_mpi_irecv(buf, count, datatype, rank, tag, comm, context_offset, NULL);
+
+        if (mpi_errno != MPI_SUCCESS) {
+            MPIR_ERR_POP(mpi_errno);
+        }
+
+        mpi_errno = MPIDI_NM_mpi_irecv_noreq(buf, count, datatype, rank, tag, comm, context_offset);
+
+        if (mpi_errno != MPI_SUCCESS) {
+            MPIR_ERR_POP(mpi_errno);
+        }
+    }
+    else {
+        int r;
+        if ((r = MPIDI_CH4_rank_is_local(rank, comm)))
+            mpi_errno =
+                MPIDI_SHM_mpi_irecv(buf, count, datatype, rank, tag, comm, context_offset, NULL);
+        else
+            mpi_errno =
+                MPIDI_NM_mpi_irecv_noreq(buf, count, datatype, rank, tag, comm, context_offset);
+    }
 #endif
     if (mpi_errno != MPI_SUCCESS) {
         MPIR_ERR_POP(mpi_errno);
