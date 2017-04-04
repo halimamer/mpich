@@ -7,7 +7,7 @@
 
 AM_CPPFLAGS += -I$(top_srcdir)/src/mpid/include
 
-include_HEADERS +=                          \
+noinst_HEADERS +=                          \
     src/mpid/include/mpidu_pre.h
 
 

@@ -8,5 +8,5 @@
 ## FIXME check that this is the right way to do VPATH
 AM_CPPFLAGS += -I$(top_srcdir)/src/util/nodemap
 
-include_HEADERS +=                             \
+noinst_HEADERS +=                             \
     src/util/nodemap/build_nodemap.h
