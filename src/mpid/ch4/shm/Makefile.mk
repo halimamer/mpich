@@ -15,7 +15,7 @@ if BUILD_CH4_SHM
 
 AM_CPPFLAGS += -I$(top_srcdir)/src/mpid/ch4/shm/include
 
-include_HEADERS += src/mpid/ch4/shm/include/shm.h
+noinst_HEADERS += src/mpid/ch4/shm/include/shm.h
 
 include $(top_srcdir)/src/mpid/ch4/shm/glue/Makefile.mk
 include $(top_srcdir)/src/mpid/ch4/shm/stubshm/Makefile.mk
