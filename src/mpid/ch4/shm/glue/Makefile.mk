@@ -7,7 +7,7 @@
 
 AM_CPPFLAGS += -I$(top_srcdir)/src/mpid/ch4/shm/glue
 
-noinst_HEADERS += src/mpid/ch4/shm/glue/shm_impl.h  \
+include_HEADERS += src/mpid/ch4/shm/glue/shm_impl.h  \
 		src/mpid/ch4/shm/glue/shm_am.h      \
 		src/mpid/ch4/shm/glue/shm_coll.h    \
 		src/mpid/ch4/shm/glue/shm_dpm.h     \
