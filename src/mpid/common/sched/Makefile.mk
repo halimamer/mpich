@@ -14,7 +14,7 @@ mpi_core_sources +=      \
 # There are no AC_OUTPUT_FILES, so the builddir path does not need to be added.
 AM_CPPFLAGS += -I$(top_srcdir)/src/mpid/common/sched
 
-include_HEADERS +=                          \
+noinst_HEADERS +=                          \
     src/mpid/common/sched/mpidu_sched.h
 
 

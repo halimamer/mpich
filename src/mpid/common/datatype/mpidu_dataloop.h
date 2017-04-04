@@ -99,8 +99,8 @@
 /* Include dataloop_parts.h at the end to get the rest of the prototypes
  * and defines, in terms of the prefixes and types above.
  */
-#include "dataloop_parts.h"
-#include "dataloop_create.h"
+#include "dataloop/dataloop_parts.h"
+#include "dataloop/dataloop_create.h"
 
 /* These values are defined by DLOOP code.
  *
