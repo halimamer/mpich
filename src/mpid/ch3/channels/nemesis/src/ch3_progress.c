@@ -16,7 +16,6 @@
 #endif
 
 #ifdef MPICH_LOCK_TRACING
-OPA_align_int_t nwaiters;
 int lock_trace_idx        = 0;
 int8_t made_some_progress = 0;
 trace_elmt_t* lock_trace  = NULL;

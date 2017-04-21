@@ -16,7 +16,7 @@ static unsigned int PVAR_COUNTER_tot_req_freed;
    which should give a positive result (it does not make sense
    to have more than 2^31 ops between two lock acquisitions)
  */
-int lock_progress_counter;
+__thread int lock_progress_counter;
 #endif
 
 #undef FUNCNAME

@@ -61,8 +61,8 @@ g * MPI_FINALIZED, MPI_GET_COUNT, MPI_GET_ELEMENTS, MPI_GRAPH_GET,
 #ifdef MPICH_LOCK_TRACING
 #define LOCK_TRACE_LEN 1e5
 extern __thread uint8_t my_core;
-extern int lock_progress_counter;
-       int lock_progress_counter_old;
+extern __thread int lock_progress_counter;
+static __thread int lock_progress_counter_old;
 typedef struct trace_elmt {
     union {
         struct {
