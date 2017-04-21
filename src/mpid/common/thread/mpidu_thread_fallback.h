@@ -75,7 +75,6 @@ typedef struct trace_elmt {
     uint32_t count;            // count for the same event
 } trace_elmt_t;
 extern int lock_trace_idx;
-extern int8_t made_some_progress;
 extern trace_elmt_t* lock_trace;
 extern FILE* lock_trace_fd;
 extern int MPIDUI_lock_tracing_enabled;
@@ -131,8 +130,6 @@ extern int MPIDUI_lock_tracing_enabled;
             lock_trace[lock_trace_idx].nwaiters = (uint8_t) OPA_load_int(&(lock)->nwaiters);\
             lock_trace[lock_trace_idx].holder = my_core;                \
         }                                                               \
-        /* We consider the main path always yielding progress */        \
-        made_some_progress = 1;                                         \
         OPA_decr_int(&(lock)->nwaiters);                                  \
         lock_progress_counter_old = lock_progress_counter;              \
     } while (0)
@@ -148,9 +145,6 @@ extern int MPIDUI_lock_tracing_enabled;
             lock_trace[lock_trace_idx].nwaiters = (uint8_t) OPA_load_int(&(lock)->nwaiters);\
             lock_trace[lock_trace_idx].holder = my_core;                \
         }                                                               \
-        /* This flag will be updated if progress */                     \
-        /* is made inside the progress engine */                        \
-        made_some_progress = 0;                                         \
         OPA_decr_int(&(lock)->nwaiters);                                  \
         lock_progress_counter_old = lock_progress_counter;              \
     } while (0)

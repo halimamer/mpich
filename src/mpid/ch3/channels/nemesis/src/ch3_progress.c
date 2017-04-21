@@ -17,7 +17,6 @@
 
 #ifdef MPICH_LOCK_TRACING
 int lock_trace_idx        = 0;
-int8_t made_some_progress = 0;
 trace_elmt_t* lock_trace  = NULL;
 __thread uint8_t my_core  = UINT8_MAX;
 
@@ -624,9 +623,6 @@ int MPIDI_CH3I_Progress (MPID_Progress_state *progress_state, int is_blocking)
                 OPA_read_barrier();
                 /* reset for the next iteration */
                 progress_state->ch.completion_count = completion_count;
-#ifdef MPICH_LOCK_TRACING
-                made_some_progress = 1;
-#endif
                 break;
             }
         }
