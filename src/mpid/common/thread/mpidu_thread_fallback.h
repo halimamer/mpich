@@ -60,7 +60,6 @@ g * MPI_FINALIZED, MPI_GET_COUNT, MPI_GET_ELEMENTS, MPI_GRAPH_GET,
 
 #ifdef MPICH_LOCK_TRACING
 #define LOCK_TRACE_LEN 1e5
-typedef OPA_int_t OPA_align_int_t __attribute__((aligned(64)));
 extern __thread uint8_t my_core;
 extern int lock_progress_counter;
        int lock_progress_counter_old;
@@ -75,7 +74,6 @@ typedef struct trace_elmt {
     };
     uint32_t count;            // count for the same event
 } trace_elmt_t;
-extern OPA_align_int_t nwaiters;
 extern int lock_trace_idx;
 extern int8_t made_some_progress;
 extern trace_elmt_t* lock_trace;
@@ -102,10 +100,10 @@ extern int MPIDUI_lock_tracing_enabled;
         lock_trace_idx = 0;                                             \
     } while (0)
 
-#define LOCK_CREATE_ENTRY_HOOK                                          \
+#define LOCK_CREATE_ENTRY_HOOK(lock)                                    \
     do {                                                                \
         lock_trace_idx = 1;                                             \
-        OPA_store_int(&nwaiters, 0);                                    \
+        OPA_store_int(&(lock)->nwaiters, 0);                              \
         lock_trace = (trace_elmt_t*) MPL_malloc (LOCK_TRACE_LEN*sizeof(trace_elmt_t));\
         lock_trace[0].event = UINT32_MAX;                               \
         lock_trace[0].count = UINT32_MAX;                               \
@@ -118,42 +116,42 @@ extern int MPIDUI_lock_tracing_enabled;
         MPL_free(lock_trace);                                          \
     } while (0)
 
-#define LOCK_ACQUIRE_ENTRY_HOOK                                         \
+#define LOCK_ACQUIRE_ENTRY_HOOK(lock)                                   \
     do {                                                                \
         if(unlikely(my_core == UINT8_MAX)) {                            \
             my_core = (uint8_t)sched_getcpu();                          \
             assert(my_core >= 0 && my_core < UINT8_MAX);                \
         }                                                               \
-        OPA_incr_int(&nwaiters);                                        \
+        OPA_incr_int(&(lock)->nwaiters);                                  \
     } while (0)
 
-#define LOCK_ACQUIRE_EXIT_HOOK                                          \
+#define LOCK_ACQUIRE_EXIT_HOOK(lock)                                    \
     do {                                                                \
         if (MPIDUI_lock_tracing_enabled) {                              \
-            lock_trace[lock_trace_idx].nwaiters = (uint8_t) OPA_load_int(&nwaiters);\
+            lock_trace[lock_trace_idx].nwaiters = (uint8_t) OPA_load_int(&(lock)->nwaiters);\
             lock_trace[lock_trace_idx].holder = my_core;                \
         }                                                               \
         /* We consider the main path always yielding progress */        \
         made_some_progress = 1;                                         \
-        OPA_decr_int(&nwaiters);                                        \
+        OPA_decr_int(&(lock)->nwaiters);                                  \
         lock_progress_counter_old = lock_progress_counter;              \
     } while (0)
 
-#define LOCK_ACQUIRE_L_ENTRY_HOOK                                       \
+#define LOCK_ACQUIRE_L_ENTRY_HOOK(lock)                                 \
     do {                                                                \
-        OPA_incr_int(&nwaiters);                                        \
+        OPA_incr_int(&(lock)->nwaiters);                                  \
     } while (0)
 
-#define LOCK_ACQUIRE_L_EXIT_HOOK                                        \
+#define LOCK_ACQUIRE_L_EXIT_HOOK(lock)                                  \
     do {                                                                \
         if (MPIDUI_lock_tracing_enabled) {                                 \
-            lock_trace[lock_trace_idx].nwaiters = (uint8_t) OPA_load_int(&nwaiters);\
+            lock_trace[lock_trace_idx].nwaiters = (uint8_t) OPA_load_int(&(lock)->nwaiters);\
             lock_trace[lock_trace_idx].holder = my_core;                \
         }                                                               \
         /* This flag will be updated if progress */                     \
         /* is made inside the progress engine */                        \
         made_some_progress = 0;                                         \
-        OPA_decr_int(&nwaiters);                                        \
+        OPA_decr_int(&(lock)->nwaiters);                                  \
         lock_progress_counter_old = lock_progress_counter;              \
     } while (0)
 
@@ -189,11 +187,15 @@ extern int MPIDUI_lock_tracing_enabled;
 #include "lock/zm_lock.h"
 #endif
 
+typedef struct MPIDU_Thread_mutex MPIDU_Thread_mutex_t __attribute__ ((aligned (64)));
+struct MPIDU_Thread_mutex {
+    OPA_int_t nwaiters;
 #if !defined(ENABLE_IZEM)
-typedef MPL_thread_mutex_t MPIDU_Thread_mutex_t;
+    MPL_thread_mutex_t real_lock;
 #else
-typedef zm_lock_t          MPIDU_Thread_mutex_t;
+    zm_lock_t real_lock;
 #endif
+};
 typedef MPL_thread_cond_t  MPIDU_Thread_cond_t;
 typedef MPL_thread_id_t    MPIDU_Thread_id_t;
 typedef MPL_thread_tls_t   MPIDU_Thread_tls_t;
@@ -459,30 +461,30 @@ M*/
 
 #if !defined(ENABLE_IZEM)
 #define MPIDUI_thread_mutex_create(mutex_ptr_, err_ptr_)                \
-    MPL_thread_mutex_create(mutex_ptr_, err_ptr_)
+    MPL_thread_mutex_create(&(mutex_ptr_)->real_lock, err_ptr_)
 #define MPIDUI_thread_mutex_destroy(mutex_ptr_, err_ptr_)               \
-    MPL_thread_mutex_destroy(mutex_ptr_, err_ptr_)
+    MPL_thread_mutex_destroy(&(mutex_ptr_)->real_lock, err_ptr_)
 #define MPIDUI_thread_mutex_lock(mutex_ptr_, err_ptr_, ctxt)            \
-    MPL_thread_mutex_lock(mutex_ptr_, err_ptr_)
+    MPL_thread_mutex_lock(&(mutex_ptr_)->real_lock, err_ptr_)
 #define MPIDUI_thread_mutex_lock_l(mutex_ptr_, err_ptr_, ctxt)          \
-    MPL_thread_mutex_lock(mutex_ptr_, err_ptr_)
+    MPL_thread_mutex_lock(&(mutex_ptr_)->real_lock, err_ptr_)
 #define MPIDUI_thread_mutex_unlock(mutex_ptr_, err_ptr_, ctxt)          \
-    MPL_thread_mutex_unlock(mutex_ptr_, err_ptr_)
+    MPL_thread_mutex_unlock(&(mutex_ptr_)->real_lock, err_ptr_)
 #else
 #define MPIDUI_thread_mutex_create(mutex_ptr_, err_ptr_)                \
 do {                                                                    \
-        *err_ptr_ = zm_lock_init(mutex_ptr_);                           \
+        *err_ptr_ = zm_lock_init(&(mutex_ptr_)->real_lock);               \
 } while (0)
-#define MPIDUI_thread_mutex_destroy(mutex_ptr_, err_ptr_)                \
+#define MPIDUI_thread_mutex_destroy(mutex_ptr_, err_ptr_)               \
 do {                                                                    \
         *err_ptr_ = 0;                                                  \
 } while (0)
 #define MPIDUI_thread_mutex_lock(mutex_ptr_, err_ptr_, ctxt)            \
-        *err_ptr_ = zm_lock_acquire(mutex_ptr_, ctxt);
+        *err_ptr_ = zm_lock_acquire(&(mutex_ptr_)->real_lock, ctxt);
 #define MPIDUI_thread_mutex_lock_l(mutex_ptr_, err_ptr_, ctxt)          \
-        *err_ptr_ = zm_lock_acquire_l(mutex_ptr_, ctxt);
+        *err_ptr_ = zm_lock_acquire_l(&(mutex_ptr_)->real_lock, ctxt);
 #define MPIDUI_thread_mutex_unlock(mutex_ptr_, err_ptr_, ctxt)          \
-        *err_ptr_ = zm_lock_release(mutex_ptr_, ctxt);
+        *err_ptr_ = zm_lock_release((&mutex_ptr_)->real_lock, ctxt);
 #endif
 
 
@@ -511,7 +513,7 @@ do {                                                                    \
 @*/
 #define MPIDU_Thread_mutex_create(mutex_ptr_, err_ptr_)                 \
     do {                                                                \
-        LOCK_CREATE_ENTRY_HOOK;                                         \
+        LOCK_CREATE_ENTRY_HOOK(mutex_ptr_);                             \
         MPIDUI_thread_mutex_create(mutex_ptr_, err_ptr_);      \
         MPIR_Assert(*err_ptr_ == 0);                                    \
         MPL_DBG_MSG_P(MPIR_DBG_THREAD,TYPICAL,"Created MPL_thread_mutex %p", (mutex_ptr_)); \
@@ -542,22 +544,22 @@ do {                                                                    \
 @*/
 #define MPIDU_Thread_mutex_lock(mutex_ptr_, err_ptr_, ctxt)             \
     do {                                                                \
-        LOCK_ACQUIRE_ENTRY_HOOK;                                        \
+        LOCK_ACQUIRE_ENTRY_HOOK(mutex_ptr_);                            \
         MPL_DBG_MSG_P(MPIR_DBG_THREAD,VERBOSE,"enter MPL_thread_mutex_lock %p", mutex_ptr_); \
         MPIDUI_thread_mutex_lock(mutex_ptr_, err_ptr_, ctxt);           \
         MPIR_Assert(*err_ptr_ == 0);                                    \
         MPL_DBG_MSG_P(MPIR_DBG_THREAD,VERBOSE,"exit MPL_thread_mutex_lock %p", mutex_ptr_); \
-        LOCK_ACQUIRE_EXIT_HOOK;                                         \
+        LOCK_ACQUIRE_EXIT_HOOK(mutex_ptr_);                             \
     } while (0)
 
 #define MPIDU_Thread_mutex_lock_l(mutex_ptr_, err_ptr_, ctxt)           \
     do {                                                                \
-        LOCK_ACQUIRE_L_ENTRY_HOOK;                                      \
+        LOCK_ACQUIRE_L_ENTRY_HOOK(mutex_ptr_);                          \
         MPL_DBG_MSG_P(MPIR_DBG_THREAD,VERBOSE,"enter MPL_thread_mutex_lock %p", mutex_ptr_); \
         MPIDUI_thread_mutex_lock_l(mutex_ptr_, err_ptr_, ctxt)  ;       \
         MPIR_Assert(*err_ptr_ == 0);                                    \
         MPL_DBG_MSG_P(MPIR_DBG_THREAD,VERBOSE,"exit MPL_thread_mutex_lock %p", mutex_ptr_); \
-        LOCK_ACQUIRE_L_EXIT_HOOK;                                       \
+        LOCK_ACQUIRE_L_EXIT_HOOK(mutex_ptr_);                           \
     } while (0)
 
 /*@
