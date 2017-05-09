@@ -1153,13 +1153,15 @@ MPL_STATIC_INLINE_PREFIX void MPIDI_comm_work_queues_init(MPIR_Comm *comm)
     comm->dev.nqueues = 1;
     comm->dev.work_queues = MPL_malloc(sizeof(MPIDI_workq_list_t) * comm->dev.nqueues);
 
+    MPIR_Assert(MPIDI_CH4_ENABLE_POBJ_WORKQUEUES);
+
     /* FIXME: currently we assume round robin. Leter, we should create queue-to-vni mapping types. */
 
     for (i = 0; i < comm->dev.nqueues; i++) {
         int vni_idx = i % MPIDI_CH4_Global.n_netmod_vnis;
         MPIDI_workq_init(&comm->dev.work_queues[i].pend_ops);
         MPID_THREAD_CS_ENTER(VNI, MPIDI_CH4_Global.vni_locks[vni_idx]);
-        MPL_DL_APPEND(MPIDI_CH4_Global.vni_queues[vni_idx], &comm->dev.work_queues[i]);
+        MPL_DL_APPEND(MPIDI_CH4_Global.workqueues.pobj[vni_idx], &comm->dev.work_queues[i]);
         MPID_THREAD_CS_EXIT(VNI, MPIDI_CH4_Global.vni_locks[vni_idx]);
     }
 }
@@ -1168,10 +1170,12 @@ MPL_STATIC_INLINE_PREFIX void MPIDI_comm_work_queues_free(MPIR_Comm *comm)
 {
     int i;
 
+    MPIR_Assert(MPIDI_CH4_ENABLE_POBJ_WORKQUEUES);
+
     for (i = 0; i < comm->dev.nqueues; i++) {
         int vni_idx = i % MPIDI_CH4_Global.n_netmod_vnis;
         MPID_THREAD_CS_ENTER(VNI, MPIDI_CH4_Global.vni_locks[vni_idx]);
-        MPL_DL_DELETE(MPIDI_CH4_Global.vni_queues[vni_idx], &comm->dev.work_queues[i]);
+        MPL_DL_DELETE(MPIDI_CH4_Global.workqueues.pobj[vni_idx], &comm->dev.work_queues[i]);
         MPID_THREAD_CS_EXIT(VNI, MPIDI_CH4_Global.vni_locks[vni_idx]);
     }
     MPL_free(comm->dev.work_queues);

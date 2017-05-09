@@ -75,6 +75,16 @@ cvars:
         handoff
         trylock
 
+    - name        : MPIR_CVAR_CH4_ENABLE_POBJ_WORKQUEUES
+      category    : CH4
+      type        : int
+      default     : -1
+      class       : device
+      verbosity   : MPI_T_VERBOSITY_USER_BASIC
+      scope       : MPI_T_SCOPE_ALL_EQ
+      description : >-
+        Enables per-object workqueues rather than per-VNI workqueues
+
 === END_MPI_T_CVAR_INFO_BLOCK ===
 */
 
@@ -144,6 +154,7 @@ MPL_STATIC_INLINE_PREFIX void MPIDI_print_runtime_configurations(void)
     printf("MPIDI_CH4_MT_MODEL: %d (%s)\n",
            MPIDI_CH4_MT_MODEL,
            MPIDI_get_mt_model_name(MPIDI_CH4_MT_MODEL));
+    printf("MPIDI_CH4_ENABLE_POBJ_WORKQUEUES: %d\n", MPIDI_CH4_ENABLE_POBJ_WORKQUEUES);
     printf("================================\n");
 }
 
@@ -172,6 +183,9 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_set_runtime_configurations(void)
                              "**ch4|invalid_mt_model", "**ch4|invalid_mt_model %s",
                              MPIR_CVAR_CH4_MT_MODEL);
     MPIDI_CH4_Global.settings.mt_model = mt;
+
+    MPIDI_CH4_Global.settings.enable_pobj_workqueues = MPIR_CVAR_CH4_ENABLE_POBJ_WORKQUEUES ? 1 : 0;
+
 fn_fail:
     return mpi_errno;
 }
@@ -376,14 +390,22 @@ MPL_STATIC_INLINE_PREFIX int MPID_Init(int *argc,
     }
 
     MPIDI_CH4_Global.vni_locks = (MPID_Thread_mutex_t*) MPL_malloc(MPIDI_CH4_Global.n_netmod_vnis * sizeof(MPID_Thread_mutex_t));
-    MPIDI_CH4_Global.vni_queues = (MPIDI_workq_list_t**) MPL_malloc(MPIDI_CH4_Global.n_netmod_vnis * sizeof(MPIDI_workq_list_t*));
+    if (MPIDI_CH4_ENABLE_POBJ_WORKQUEUES) {
+        MPIDI_CH4_Global.workqueues.pobj = (MPIDI_workq_list_t**) MPL_malloc(MPIDI_CH4_Global.n_netmod_vnis * sizeof(MPIDI_workq_list_t*));
+    }
+    else {
+        MPIDI_CH4_Global.workqueues.pvni = (MPIDI_workq_t *) MPL_malloc(MPIDI_CH4_Global.n_netmod_vnis * sizeof(MPIDI_workq_t));
+    }
 
     for (i = 0; i < MPIDI_CH4_Global.n_netmod_vnis; i++) {
         MPID_Thread_mutex_create(&MPIDI_CH4_Global.vni_locks[i], &mpi_errno);
         if (mpi_errno != MPI_SUCCESS) {
             MPIR_ERR_POPFATAL(mpi_errno);
         }
-        MPIDI_CH4_Global.vni_queues[i] = NULL;
+        if (MPIDI_CH4_ENABLE_POBJ_WORKQUEUES)
+            MPIDI_CH4_Global.workqueues.pobj[i] = NULL;
+        else
+            MPIDI_workq_init(&MPIDI_CH4_Global.workqueues.pvni[i]);
     }
 
     MPID_Progress_register(MPIDI_workq_global_progress, &MPIDI_CH4_Global.progress_hook_id);
@@ -466,7 +488,10 @@ MPL_STATIC_INLINE_PREFIX int MPID_Finalize(void)
     MPIDIU_avt_destroy();
     MPL_free(MPIDI_CH4_Global.jobid);
 
-    MPL_free(MPIDI_CH4_Global.vni_queues);
+    if (MPIDI_CH4_ENABLE_POBJ_WORKQUEUES)
+        MPL_free(MPIDI_CH4_Global.workqueues.pobj);
+    else
+        MPL_free(MPIDI_CH4_Global.workqueues.pvni);
 
     for (i = 0; i < MPIDI_CH4_Global.n_netmod_vnis; i++) {
         MPID_Thread_mutex_destroy(&MPIDI_CH4_Global.vni_locks[i], &thr_err);

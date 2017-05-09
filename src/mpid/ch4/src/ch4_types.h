@@ -259,6 +259,7 @@ typedef struct {
 
 typedef struct {
     unsigned mt_model;
+    unsigned enable_pobj_workqueues:1;
 } MPIDI_CH4_configurations_t;
 
 typedef struct MPIDI_CH4_Global_t {
@@ -290,8 +291,15 @@ typedef struct MPIDI_CH4_Global_t {
     int n_netmod_vnis;
     int next_vni_idx;
     MPID_Thread_mutex_t *vni_locks;
-    MPIDI_workq_list_t **vni_queues;
-    /* Per-VNI queues for saving pending operations to issue */
+
+    /* Work queues */
+    union {
+        /* Per-object queue, when MPIDI_CH4_ENABLE_POBJ_WORKQUEUES */
+        MPIDI_workq_list_t **pobj;
+        /* Per-VNI queue, when !MPIDI_CH4_ENABLE_POBJ_WORKQUEUES */
+        MPIDI_workq_t *pvni;
+    } workqueues;
+
     int progress_hook_id;
 
     MPIDI_CH4_configurations_t settings;

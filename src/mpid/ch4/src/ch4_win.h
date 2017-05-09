@@ -18,11 +18,13 @@ static inline void MPIDI_win_work_queues_init(MPIR_Win* win)
     win->dev.nqueues = 1;
     win->dev.work_queues = MPL_malloc(sizeof(MPIDI_workq_list_t) * win->dev.nqueues);
 
+    MPIR_Assert(MPIDI_CH4_ENABLE_POBJ_WORKQUEUES);
+
     int i;
     for (i = 0; i < win->dev.nqueues; i++) {
         MPIDI_workq_init(&win->dev.work_queues[i].pend_ops);
         MPID_THREAD_CS_ENTER(VNI, MPIDI_CH4_Global.vni_locks[i]);
-        MPL_DL_APPEND(MPIDI_CH4_Global.vni_queues[i], &win->dev.work_queues[i]);
+        MPL_DL_APPEND(MPIDI_CH4_Global.workqueues.pobj[i], &win->dev.work_queues[i]);
         MPID_THREAD_CS_EXIT(VNI, MPIDI_CH4_Global.vni_locks[i]);
     }
 }
@@ -30,9 +32,12 @@ static inline void MPIDI_win_work_queues_init(MPIR_Win* win)
 static inline void MPIDI_win_work_queues_free(MPIR_Win* win)
 {
     int i;
+
+    MPIR_Assert(MPIDI_CH4_ENABLE_POBJ_WORKQUEUES);
+
     for (i = 0; i < win->dev.nqueues; i++) {
         MPID_THREAD_CS_ENTER(VNI, MPIDI_CH4_Global.vni_locks[i]);
-        MPL_DL_DELETE(MPIDI_CH4_Global.vni_queues[i], &win->dev.work_queues[i]);
+        MPL_DL_DELETE(MPIDI_CH4_Global.workqueues.pobj[i], &win->dev.work_queues[i]);
         MPID_THREAD_CS_EXIT(VNI, MPIDI_CH4_Global.vni_locks[i]);
     }
 
@@ -230,7 +235,8 @@ MPL_STATIC_INLINE_PREFIX int MPID_Win_free(MPIR_Win ** win_ptr)
     MPIR_FUNC_VERBOSE_STATE_DECL(MPID_STATE_MPID_WIN_FREE);
     MPIR_FUNC_VERBOSE_ENTER(MPID_STATE_MPID_WIN_FREE);
 
-    MPIDI_win_work_queues_free(*win_ptr);
+    if (MPIDI_CH4_ENABLE_POBJ_WORKQUEUES)
+        MPIDI_win_work_queues_free(*win_ptr);
 
     mpi_errno = MPIDI_NM_mpi_win_free(win_ptr);
     if (mpi_errno != MPI_SUCCESS) {
@@ -281,7 +287,8 @@ MPL_STATIC_INLINE_PREFIX int MPID_Win_create(void *base,
         MPIR_ERR_POP(mpi_errno);
     }
 
-    MPIDI_win_work_queues_init(*win_ptr);
+    if (MPIDI_CH4_ENABLE_POBJ_WORKQUEUES)
+        MPIDI_win_work_queues_init(*win_ptr);
 
   fn_exit:
     MPIR_FUNC_VERBOSE_EXIT(MPID_STATE_MPID_WIN_CREATE);
@@ -415,7 +422,8 @@ MPL_STATIC_INLINE_PREFIX int MPID_Win_allocate(MPI_Aint size,
         MPIR_ERR_POP(mpi_errno);
     }
 
-    MPIDI_win_work_queues_init(*win);
+    if (MPIDI_CH4_ENABLE_POBJ_WORKQUEUES)
+        MPIDI_win_work_queues_init(*win);
 
   fn_exit:
     MPIR_FUNC_VERBOSE_EXIT(MPID_STATE_MPID_WIN_ALLOCATE);
@@ -499,7 +507,8 @@ MPL_STATIC_INLINE_PREFIX int MPID_Win_create_dynamic(MPIR_Info * info, MPIR_Comm
         MPIR_ERR_POP(mpi_errno);
     }
 
-    MPIDI_win_work_queues_init(*win);
+    if (MPIDI_CH4_ENABLE_POBJ_WORKQUEUES)
+        MPIDI_win_work_queues_init(*win);
   fn_exit:
     MPIR_FUNC_VERBOSE_EXIT(MPID_STATE_MPID_WIN_CREATE_DYNAMIC);
     return mpi_errno;
