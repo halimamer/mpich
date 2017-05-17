@@ -17,38 +17,41 @@ enum {
     MPIDI_CH4_NUM_MT_MODELS,
 };
 
+/*
+  Work queue implementations
+  We can't use enum here because we want to use these values in #if macros
+*/
+#define MPIDI_CH4_WORKQ_ZM_MSQUEUE 0
+#define MPIDI_CH4_WORKQ_ZM_GLQUEUE 1
+#define MPIDI_CH4_NUM_WORKQ_TYPES  2
+
 static char *MPIDI_CH4_mt_model_names[MPIDI_CH4_NUM_MT_MODELS] = {
     "direct",
     "handoff",
     "trylock",
 };
 
-/* Define the work queue implementation type */
-#if defined(MPIDI_USE_NMQUEUE)
-#include <queue/zm_nmqueue.h>
-#define MPIDI_workq_t       zm_nmqueue_t
-#define MPIDI_workq_init    zm_nmqueue_init
-#define MPIDI_workq_enqueue zm_nmqueue_enqueue
-#define MPIDI_workq_dequeue zm_nmqueue_dequeue
-#elif defined(MPIDI_USE_MSQUEUE)
 #include <queue/zm_msqueue.h>
-#define MPIDI_workq_t       zm_msqueue_t
-#define MPIDI_workq_init    zm_msqueue_init
-#define MPIDI_workq_enqueue zm_msqueue_enqueue
-#define MPIDI_workq_dequeue zm_msqueue_dequeue
-#elif defined(MPIDI_USE_GLQUEUE)
 #include <queue/zm_glqueue.h>
-#define MPIDI_workq_t       zm_glqueue_t
-#define MPIDI_workq_init    zm_glqueue_init
-#define MPIDI_workq_enqueue zm_glqueue_enqueue
-#define MPIDI_workq_dequeue zm_glqueue_dequeue
-#else
-/* Stub implementation to make it compile */
-typedef void *MPIDI_workq_t;
-MPL_STATIC_INLINE_PREFIX void MPIDI_workq_init(MPIDI_workq_t *q) {}
-MPL_STATIC_INLINE_PREFIX void MPIDI_workq_enqueue(MPIDI_workq_t *q, void *p) {}
-MPL_STATIC_INLINE_PREFIX void MPIDI_workq_dequeue(MPIDI_workq_t *q, void **pp) {}
+
+typedef struct MPIDI_workq {
+    /* TODO: we can cut off unused members in case of compile time build */
+    union {
+        zm_msqueue_t zm_msqueue;
+        zm_glqueue_t zm_glqueue;
+    };
+
+#ifdef MPIDI_CH4_USE_WORKQ_RUNTIME
+    void (*enqueue)(struct MPIDI_workq *q, void *p);
+    int (*dequeue_bulk)(struct MPIDI_workq *q, void **p, int n);
+    void (*finalize)(struct MPIDI_workq *q);
 #endif
+} MPIDI_workq_t;
+
+static const char *MPIDI_workq_types[] = {
+    "zm_msqueue",
+    "zm_glqueue",
+};
 
 typedef enum MPIDI_workq_op MPIDI_workq_op_t;
 enum MPIDI_workq_op {SEND, ISEND, RECV, IRECV, PUT};

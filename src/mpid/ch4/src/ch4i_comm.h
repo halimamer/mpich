@@ -1177,6 +1177,7 @@ MPL_STATIC_INLINE_PREFIX void MPIDI_comm_work_queues_free(MPIR_Comm *comm)
         MPID_THREAD_CS_ENTER(VNI, MPIDI_CH4_Global.vni_locks[vni_idx]);
         MPL_DL_DELETE(MPIDI_CH4_Global.workqueues.pobj[vni_idx], &comm->dev.work_queues[i]);
         MPID_THREAD_CS_EXIT(VNI, MPIDI_CH4_Global.vni_locks[vni_idx]);
+        MPIDI_workq_finalize(&comm->dev.work_queues[i].pend_ops);
     }
     MPL_free(comm->dev.work_queues);
 }

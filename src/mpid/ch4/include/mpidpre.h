@@ -22,7 +22,6 @@
 #include "netmodpre.h"
 #include "shmpre.h"
 #include "mpl_uthash.h"
-#include "ch4i_workq_types.h"
 
 #ifdef MPIDI_CH4_USE_MT_DIRECT
 #  define MPIDI_CH4_MT_MODEL MPIDI_CH4_MT_DIRECT
@@ -35,6 +34,18 @@
 #else
 #  error "Unknown MT model or MT model not defined"
 #endif
+
+#ifdef MPIDI_CH4_USE_WORKQ_ZM_MSQUEUE
+#  define MPIDI_CH4_WORKQ_TYPE MPIDI_CH4_WORKQ_ZM_MSQUEUE
+#elif defined MPIDI_CH4_USE_WORKQ_ZM_GLQUEUE
+#  define MPIDI_CH4_WORKQ_TYPE MPIDI_CH4_WORKQ_ZM_GLQUEUE
+#elif defined MPIDI_CH4_USE_WORKQ_RUNTIME
+#  define MPIDI_CH4_WORKQ_TYPE MPIDI_CH4_Global.settings.workq_type
+#else
+#  error "Unknown workqueue type or workqueue type not defined"
+#endif
+
+#include "ch4i_workq_types.h"
 
 typedef struct {
     union {
