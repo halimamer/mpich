@@ -478,7 +478,7 @@ do {                                                                    \
 #define MPIDUI_thread_mutex_lock_l(mutex_ptr_, err_ptr_, ctxt)          \
         *err_ptr_ = zm_lock_acquire_l(&(mutex_ptr_)->real_lock, ctxt);
 #define MPIDUI_thread_mutex_unlock(mutex_ptr_, err_ptr_, ctxt)          \
-        *err_ptr_ = zm_lock_release((&mutex_ptr_)->real_lock, ctxt);
+        *err_ptr_ = zm_lock_release(&(mutex_ptr_)->real_lock, ctxt);
 #endif
 
 
