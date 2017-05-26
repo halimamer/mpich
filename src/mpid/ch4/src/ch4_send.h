@@ -39,15 +39,19 @@ MPL_STATIC_INLINE_PREFIX int MPID_Send(const void *buf,
     }
 
 #ifndef MPIDI_CH4_EXCLUSIVE_SHM
-    mpi_errno = MPIDI_NM_mpi_send(buf, count, datatype, rank, tag, comm, context_offset, NULL, request);
+    MPIDI_DISPATCH(SEND, mpi_errno,
+                   buf, count, datatype, rank, tag, comm, context_offset, NULL /* addr */,
+                   request);
 #else
     int r;
     if ((r = MPIDI_CH4_rank_is_local(rank, comm)))
         mpi_errno =
             MPIDI_SHM_mpi_send(buf, count, datatype, rank, tag, comm, context_offset, request);
     else
-        mpi_errno =
-            MPIDI_NM_mpi_send(buf, count, datatype, rank, tag, comm, context_offset, NULL, request);
+        MPIDI_DISPATCH(SEND, mpi_errno,
+                       buf, count, datatype, rank, tag, comm, context_offset, NULL /* addr */,
+                       request);
+
     if (mpi_errno == MPI_SUCCESS && *request)
         MPIDI_CH4I_REQUEST(*request, is_local) = r;
 #endif
@@ -87,15 +91,18 @@ MPL_STATIC_INLINE_PREFIX int MPID_Isend(const void *buf,
     }
 
 #ifndef MPIDI_CH4_EXCLUSIVE_SHM
-    mpi_errno = MPIDI_NM_mpi_isend(buf, count, datatype, rank, tag, comm, context_offset, NULL, request);
+    MPIDI_DISPATCH(ISEND, mpi_errno,
+                   buf, count, datatype, rank, tag, comm, context_offset, NULL /* addr */,
+                   request);
 #else
     int r;
     if ((r = MPIDI_CH4_rank_is_local(rank, comm)))
         mpi_errno =
             MPIDI_SHM_mpi_isend(buf, count, datatype, rank, tag, comm, context_offset, request);
     else
-        mpi_errno =
-            MPIDI_NM_mpi_isend(buf, count, datatype, rank, tag, comm, context_offset, NULL, request);
+        MPIDI_DISPATCH(ISEND, mpi_errno,
+                       buf, count, datatype, rank, tag, comm, context_offset, NULL /* addr */,
+                       request);
     if (mpi_errno == MPI_SUCCESS)
         MPIDI_CH4I_REQUEST(*request, is_local) = r;
 #endif

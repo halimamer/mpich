@@ -733,4 +733,26 @@ static inline void MPIDI_win_check_group_local_completed(MPIR_Win * win,
     }
 }
 
+static inline void MPIDI_find_tag_vni_comm_rr(MPIR_Comm* comm, int target_rank, int tag, int* vni_idx)
+{
+    *vni_idx = MPIR_CONTEXT_READ_FIELD(PREFIX, comm->context_id) % MPIDI_CH4_Global.n_netmod_vnis;
+    MPIR_Assert(*vni_idx >= 0);
+}
+
+static inline void MPIDI_find_tag_vni(MPIR_Comm* comm, int target_rank, int tag, int* vni_idx)
+{
+    MPIDI_find_tag_vni_comm_rr(comm, target_rank, tag, vni_idx);
+}
+
+static inline void MPIDI_find_rma_vni(MPIR_Win* win, int target_rank, int* vni_idx)
+{
+#if 0
+    *vni_idx = ((win->comm_ptr->context_id + target_rank) % MPIDI_CH4_Global.n_netmod_vnis) & INT_MAX;
+#else
+    // *vni_idx = 0;
+    *vni_idx = (MPIR_CONTEXT_READ_FIELD(PREFIX, win->comm_ptr->context_id) % MPIDI_CH4_Global.n_netmod_vnis) & INT_MAX;
+#endif
+    MPIR_Assert(*vni_idx >= 0);
+}
+
 #endif /* CH4_IMPL_H_INCLUDED */

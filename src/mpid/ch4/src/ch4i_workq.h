@@ -10,6 +10,76 @@
 
 #include "ch4i_workq_types.h"
 
+#define MPIDI_REQUEST_KIND_SEND MPIR_REQUEST_KIND__SEND
+#define MPIDI_REQUEST_KIND_ISEND MPIR_REQUEST_KIND__SEND
+#define MPIDI_REQUEST_KIND_RECV MPIR_REQUEST_KIND__RECV
+#define MPIDI_REQUEST_KIND_IRECV MPIR_REQUEST_KIND__RECV
+#define MPIDI_REQUEST_KIND_PUT MPIR_REQUEST_KIND__RMA
+
+#define MPIDI_EXTRACT_SEND_ARGS(elem)                             \
+    (elem)->send_buf,                                             \
+        (elem)->count,                                            \
+        (elem)->datatype,                                         \
+        (elem)->rank,                                             \
+        (elem)->tag,                                              \
+        (elem)->comm_ptr,                                         \
+        (elem)->context_offset,                                   \
+        (elem)->pt2pt_addr,                                       \
+        &(elem)->request
+
+#define MPIDI_EXTRACT_RECV_ARGS(elem)                             \
+    (elem)->recv_buf,                                             \
+        (elem)->count,                                            \
+        (elem)->datatype,                                         \
+        (elem)->rank,                                             \
+        (elem)->tag,                                              \
+        (elem)->comm_ptr,                                         \
+        (elem)->context_offset,                                   \
+        (elem)->pt2pt_addr,                                       \
+        (elem)->status,                                           \
+        &(elem)->request
+
+#define MPIDI_EXTRACT_IRECV_ARGS(elem)                             \
+    (elem)->recv_buf,                                             \
+        (elem)->count,                                            \
+        (elem)->datatype,                                         \
+        (elem)->rank,                                             \
+        (elem)->tag,                                              \
+        (elem)->comm_ptr,                                         \
+        (elem)->context_offset,                                   \
+        (elem)->pt2pt_addr,                                       \
+        &(elem)->request
+
+#define MPIDI_EXTRACT_PUTGET_ARGS(elem)         \
+    (elem)->origin_addr,                        \
+        (elem)->origin_count,                   \
+        (elem)->origin_datatype,                \
+        (elem)->target_rank,                    \
+        (elem)->target_disp,                    \
+        (elem)->target_count,                   \
+        (elem)->target_datatype,                                \
+        (elem)->win_ptr,                                        \
+        (elem)->rma_addr
+
+#define MPIDI_INVOKE_DIRECT_SEND(args...) MPIDI_NM_mpi_send(args)
+#define MPIDI_INVOKE_DIRECT_ISEND(args...) MPIDI_NM_mpi_isend(args)
+#define MPIDI_INVOKE_DIRECT_RECV(args...) MPIDI_NM_mpi_recv(args)
+#define MPIDI_INVOKE_DIRECT_IRECV(args...) MPIDI_NM_mpi_irecv(args)
+#define MPIDI_INVOKE_DIRECT_PUT(args...) MPIDI_NM_mpi_put(args)
+
+#define MPIDI_INVOKE_DEFERRED_SEND(elem) MPIDI_NM_mpi_send(MPIDI_EXTRACT_SEND_ARGS(elem))
+#define MPIDI_INVOKE_DEFERRED_ISEND(elem) MPIDI_NM_mpi_isend(MPIDI_EXTRACT_SEND_ARGS(elem))
+#define MPIDI_INVOKE_DEFERRED_RECV(elem) MPIDI_NM_mpi_recv(MPIDI_EXTRACT_RECV_ARGS(elem))
+#define MPIDI_INVOKE_DEFERRED_IRECV(elem) MPIDI_NM_mpi_irecv(MPIDI_EXTRACT_IRECV_ARGS(elem))
+#define MPIDI_INVOKE_DEFERRED_PUT(elem) MPIDI_NM_mpi_put(MPIDI_EXTRACT_PUTGET_ARGS(elem))
+
+#define MPIDI_INVOKE_DEFERRED(op, elem)                         \
+    case op: {                                                  \
+        mpi_errno = MPIDI_INVOKE_DEFERRED_##op(elem);           \
+            if (mpi_errno != MPI_SUCCESS) goto fn_fail;         \
+        break;                                                  \
+    }
+
 /* For profiling */
 extern double MPIDI_pt2pt_enqueue_time;
 extern double MPIDI_pt2pt_progress_time;
@@ -125,67 +195,11 @@ static inline int MPIDI_workq_vni_progress_body(int vni_idx)
         while(workq_elemt != NULL) {
             MPIDI_WORKQ_ISSUE_START;
             switch(workq_elemt->op) {
-            case SEND:
-                mpi_errno = MPIDI_NM_mpi_send(workq_elemt->send_buf,
-                                              workq_elemt->count,
-                                              workq_elemt->datatype,
-                                              workq_elemt->rank,
-                                              workq_elemt->tag,
-                                              workq_elemt->comm_ptr,
-                                              workq_elemt->context_offset,
-                                              workq_elemt->pt2pt_addr,
-                                              &workq_elemt->request);
-                if (mpi_errno != MPI_SUCCESS) goto fn_fail;
-                break;
-            case ISEND:
-                mpi_errno = MPIDI_NM_mpi_isend(workq_elemt->send_buf,
-                                               workq_elemt->count,
-                                               workq_elemt->datatype,
-                                               workq_elemt->rank,
-                                               workq_elemt->tag,
-                                               workq_elemt->comm_ptr,
-                                               workq_elemt->context_offset,
-                                               workq_elemt->pt2pt_addr,
-                                               &workq_elemt->request);
-                if (mpi_errno != MPI_SUCCESS) goto fn_fail;
-                break;
-            case RECV:
-                mpi_errno = MPIDI_NM_mpi_recv(workq_elemt->recv_buf,
-                                               workq_elemt->count,
-                                               workq_elemt->datatype,
-                                               workq_elemt->rank,
-                                               workq_elemt->tag,
-                                               workq_elemt->comm_ptr,
-                                               workq_elemt->context_offset,
-                                               workq_elemt->pt2pt_addr,
-                                               workq_elemt->status,
-                                               &workq_elemt->request);
-                if (mpi_errno != MPI_SUCCESS) goto fn_fail;
-                break;
-            case IRECV:
-                mpi_errno = MPIDI_NM_mpi_irecv(workq_elemt->recv_buf,
-                                               workq_elemt->count,
-                                               workq_elemt->datatype,
-                                               workq_elemt->rank,
-                                               workq_elemt->tag,
-                                               workq_elemt->comm_ptr,
-                                               workq_elemt->context_offset,
-                                               workq_elemt->pt2pt_addr,
-                                               &workq_elemt->request);
-                if (mpi_errno != MPI_SUCCESS) goto fn_fail;
-                break;
-            case PUT:
-                mpi_errno = MPIDI_NM_mpi_put(workq_elemt->origin_addr,
-                                             workq_elemt->origin_count,
-                                             workq_elemt->origin_datatype,
-                                             workq_elemt->target_rank,
-                                             workq_elemt->target_disp,
-                                             workq_elemt->target_count,
-                                             workq_elemt->target_datatype,
-                                             workq_elemt->win_ptr,
-                                             workq_elemt->rma_addr);
-                if (mpi_errno != MPI_SUCCESS) goto fn_fail;
-                break;
+                MPIDI_INVOKE_DEFERRED(SEND, workq_elemt);
+                MPIDI_INVOKE_DEFERRED(ISEND, workq_elemt);
+                MPIDI_INVOKE_DEFERRED(RECV, workq_elemt);
+                MPIDI_INVOKE_DEFERRED(IRECV, workq_elemt);
+                MPIDI_INVOKE_DEFERRED(PUT, workq_elemt);
             }
             MPIDI_WORKQ_ISSUE_STOP;
             MPL_free(workq_elemt);
@@ -239,7 +253,9 @@ static inline void MPIDI_workq_rma_enqueue(MPIDI_workq_op_t op,
 static inline int MPIDI_workq_vni_progress(int vni_idx)
 {
     int mpi_errno;
+    MPID_THREAD_CS_ENTER(VNI, MPIDI_CH4_Global.vni_locks[vni_idx]);
     mpi_errno = MPIDI_workq_vni_progress_body(vni_idx);
+    MPID_THREAD_CS_EXIT(VNI, MPIDI_CH4_Global.vni_locks[vni_idx]);
     return mpi_errno;
 }
 
@@ -248,22 +264,63 @@ static inline int MPIDI_workq_global_progress(int* made_progress)
     int mpi_errno, vni_idx;
     *made_progress = 1;
     for (vni_idx = 0; vni_idx < MPIDI_CH4_Global.n_netmod_vnis; vni_idx++) {
-        MPID_THREAD_CS_ENTER(VNI, MPIDI_CH4_Global.vni_locks[vni_idx]);
         mpi_errno = MPIDI_workq_vni_progress(vni_idx);
         if(unlikely(mpi_errno != MPI_SUCCESS))
             break;
-        MPID_THREAD_CS_EXIT(VNI, MPIDI_CH4_Global.vni_locks[vni_idx]);
     }
     return mpi_errno;
 }
 
-#define MPIDI_DISPATCH_PT2PT_RECV(func, send_buf, recv_buf, count, datatype, rank, tag, comm, context_offset, addr, status, request, err) \
-    err = func(recv_buf, count, datatype, rank, tag, comm, context_offset, addr, status, request);
-#define MPIDI_DISPATCH_PT2PT_IRECV(func, send_buf, recv_buf, count, datatype, rank, tag, comm, context_offset, addr, status, request, err) \
-    err = func(recv_buf, count, datatype, rank, tag, comm, context_offset, addr, request);
-#define MPIDI_DISPATCH_PT2PT_SEND(func, send_buf, recv_buf, count, datatype, rank, tag, comm, context_offset, addr, status, request, err) \
-    err = func(send_buf, count, datatype, rank, tag, comm, context_offset, addr, request);
-#define MPIDI_DISPATCH_PT2PT_ISEND(func, send_buf, recv_buf, count, datatype, rank, tag, comm, context_offset, addr, status, request, err) \
-    err = func(send_buf, count, datatype, rank, tag, comm, context_offset, addr, request);
+#define MPIDI_ENQUEUE_SEND(opval, vni_idx, buf, count, datatype, rank, tag, comm, context_offset, addr, request) \
+    MPIDI_workq_pt2pt_enqueue(opval, buf, NULL /* recv_buf */, count, datatype, \
+                              rank, tag, comm, context_offset, addr, vni_idx, \
+                              NULL /* status */, *request)
+#define MPIDI_ENQUEUE_ISEND MPIDI_ENQUEUE_SEND
+#define MPIDI_ENQUEUE_RECV(opval, vni_idx, buf, count, datatype, rank, tag, comm, context_offset, addr, status, request) \
+    MPIDI_workq_pt2pt_enqueue(opval, NULL /* send_buf */, buf, count, datatype, \
+                              rank, tag, comm, context_offset, addr, vni_idx, \
+                              status, *request)
+
+#define MPIDI_ENQUEUE_IRECV(opval, vni_idx, buf, count, datatype, rank, tag, comm, context_offset, addr, request) \
+    MPIDI_workq_pt2pt_enqueue(opval, NULL /* send_buf */, buf, count, datatype, \
+                              rank, tag, comm, context_offset, addr, vni_idx, \
+                              NULL /* status */, *request)
+#define MPIDI_ENQUEUE_PUT(opval, vni_idx, origin_addr, origin_count, origin_datatype, target_rank, \
+                          target_disp, target_count, target_datatype, win, addr) \
+    MPIDI_workq_rma_enqueue(vni_idx, origin_addr, origin_count, origin_datatype, target_rank, \
+                            target_disp, target_count, target_datatype, win, addr)
+/*
+  MPIDI_DISPATCH - dispatching macro for each MPI functions
+  args must include an argument called `request`, of type `MPIR_Request **`
+*/
+#define MPIDI_DISPATCH(op, mpi_errno, args...)                          \
+    do {                                                                \
+        int vni_idx_, cs_acq = 0;                                       \
+        MPIDI_find_tag_vni(comm, rank, tag, &vni_idx_);                 \
+        if (MPIDI_CH4_MT_MODEL == MPIDI_CH4_MT_TRYLOCK) {               \
+            MPID_THREAD_CS_TRYENTER(VNI, MPIDI_CH4_Global.vni_locks[vni_idx_], cs_acq); \
+            if(!cs_acq) {                                               \
+                *(request) = MPIR_Request_create(MPIDI_REQUEST_KIND_##op); \
+                MPIDI_ENQUEUE_##op(op, vni_idx_, args);                 \
+                (mpi_errno) = MPI_SUCCESS;                              \
+            } else {                                                    \
+                mpi_errno = MPIDI_INVOKE_DIRECT_##op(args);             \
+                MPID_THREAD_CS_EXIT(VNI, MPIDI_CH4_Global.vni_locks[vni_idx_]); \
+            }                                                           \
+        } else {                                                        \
+            /* Direct && Handoff */                                     \
+            if (MPIDI_CH4_MT_MODEL == MPIDI_CH4_MT_HANDOFF) {           \
+                *(request) = MPIR_Request_create(MPIDI_REQUEST_KIND_##op); \
+            }                                                           \
+            if (MPIDI_CH4_MT_MODEL == MPIDI_CH4_MT_HANDOFF && MPIR_ThreadInfo.isThreaded) { \
+                MPIDI_ENQUEUE_##op(op, vni_idx_, args);                 \
+                (mpi_errno) = MPI_SUCCESS;                              \
+            } else {                                                    \
+                MPID_THREAD_CS_ENTER(VNI, MPIDI_CH4_Global.vni_locks[vni_idx_]); \
+                mpi_errno = MPIDI_INVOKE_DIRECT_##op(args);             \
+                MPID_THREAD_CS_EXIT(VNI, MPIDI_CH4_Global.vni_locks[vni_idx_]); \
+            }                                                           \
+        }                                                               \
+    } while (0)
 
 #endif /* CH4I_WORKQ_H_INCLUDED */

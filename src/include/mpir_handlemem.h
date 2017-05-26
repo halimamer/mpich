@@ -221,8 +221,10 @@ static inline void *MPIR_Handle_obj_alloc(MPIR_Object_alloc_t * objmem)
 {
     void *ret;
     MPID_THREAD_CS_ENTER(POBJ, MPIR_THREAD_POBJ_HANDLE_MUTEX);
+    MPID_THREAD_CS_ENTER(VNI,  MPIR_THREAD_POBJ_HANDLE_MUTEX);
     ret = MPIR_Handle_obj_alloc_unsafe(objmem);
-    MPID_THREAD_CS_EXIT(POBJ, MPIR_THREAD_POBJ_HANDLE_MUTEX);
+    MPID_THREAD_CS_EXIT(VNI,   MPIR_THREAD_POBJ_HANDLE_MUTEX);
+    MPID_THREAD_CS_EXIT(POBJ,  MPIR_THREAD_POBJ_HANDLE_MUTEX);
     return ret;
 }
 
@@ -339,6 +341,7 @@ static inline void MPIR_Handle_obj_free(MPIR_Object_alloc_t * objmem, void *obje
     MPIR_Handle_common *obj = (MPIR_Handle_common *) object;
 
     MPID_THREAD_CS_ENTER(POBJ, MPIR_THREAD_POBJ_HANDLE_MUTEX);
+    MPID_THREAD_CS_ENTER(VNI,  MPIR_THREAD_POBJ_HANDLE_MUTEX);
 
     MPL_DBG_MSG_FMT(MPIR_DBG_HANDLE, TYPICAL, (MPL_DBG_FDEST,
                                                "Freeing object ptr %p (0x%08x kind=%s) refcount=%d",
@@ -382,6 +385,7 @@ static inline void MPIR_Handle_obj_free(MPIR_Object_alloc_t * objmem, void *obje
 
     obj->next = objmem->avail;
     objmem->avail = obj;
+    MPID_THREAD_CS_EXIT(VNI,  MPIR_THREAD_POBJ_HANDLE_MUTEX);
     MPID_THREAD_CS_EXIT(POBJ, MPIR_THREAD_POBJ_HANDLE_MUTEX);
 }
 
