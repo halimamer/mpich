@@ -59,41 +59,34 @@ g * MPI_FINALIZED, MPI_GET_COUNT, MPI_GET_ELEMENTS, MPI_GRAPH_GET,
  */
 
 #ifdef MPICH_LOCK_TRACING
+
 #define LOCK_TRACE_LEN 1e5
-extern __thread uint8_t my_core;
-extern __thread int lock_progress_counter;
-static __thread int lock_progress_counter_old;
-typedef struct trace_elmt {
-    union {
-        struct {
-            uint8_t nwaiters;
-            uint8_t holder;
-            uint16_t progress; // number of ops performed in pt2pt (creation, completion, destruction)
-        };
-        int32_t event;         // compact representation of the above struct (for easy comparison)
-    };
-    uint32_t count;            // count for the same event
-} trace_elmt_t;
+
+typedef struct trace_elmt trace_elmt_t;
+
 extern int lock_trace_idx;
 extern trace_elmt_t* lock_trace;
 extern FILE* lock_trace_fd;
 extern int MPIDUI_lock_tracing_enabled;
 
-#include <sched.h>
-#include <unistd.h>
+#if defined(MPICH_LOCK_TRACE_WAITERS)
+
+struct trace_elmt {
+    uint8_t nwaiters;
+    uint32_t count;            // count for the same event
+};
+
 #define dump_lock_trace()                                               \
     do {                                                                \
         if (unlikely(lock_trace_fd == NULL)) {                          \
             char filename[20];                                          \
             sprintf(filename, "%d.csv", MPIR_Process.comm_world->rank); \
             lock_trace_fd = fopen(filename, "w");                       \
-            fprintf(lock_trace_fd, "nwaiter,holder,bpgrs,count\n");     \
+            fprintf(lock_trace_fd, "nwaiter,count\n");                  \
         }                                                               \
         for(int i=1; i<lock_trace_idx; i++)                             \
-            fprintf(lock_trace_fd, "%d,%d,%d,%d\n",                     \
+            fprintf(lock_trace_fd, "%d,%d\n",                           \
                                     lock_trace[i].nwaiters,             \
-                                    lock_trace[i].holder,               \
-                                    lock_trace[i].progress,             \
                                     lock_trace[i].count);               \
         memset(lock_trace, 0, LOCK_TRACE_LEN*sizeof(trace_elmt_t));     \
         lock_trace_idx = 0;                                             \
@@ -102,9 +95,9 @@ extern int MPIDUI_lock_tracing_enabled;
 #define LOCK_CREATE_ENTRY_HOOK(lock)                                    \
     do {                                                                \
         lock_trace_idx = 1;                                             \
-        OPA_store_int(&(lock)->nwaiters, 0);                              \
+        OPA_store_int(&(lock)->nwaiters, 0);                            \
         lock_trace = (trace_elmt_t*) MPL_malloc (LOCK_TRACE_LEN*sizeof(trace_elmt_t));\
-        lock_trace[0].event = UINT32_MAX;                               \
+        lock_trace[0].nwaiters = UINT8_MAX;                             \
         lock_trace[0].count = UINT32_MAX;                               \
     } while (0)
 
@@ -112,49 +105,39 @@ extern int MPIDUI_lock_tracing_enabled;
     do {                                                                \
         dump_lock_trace();                                              \
         fclose(lock_trace_fd);                                          \
-        MPL_free(lock_trace);                                          \
+        MPL_free(lock_trace);                                           \
     } while (0)
 
 #define LOCK_ACQUIRE_ENTRY_HOOK(lock)                                   \
     do {                                                                \
-        if(unlikely(my_core == UINT8_MAX)) {                            \
-            my_core = (uint8_t)sched_getcpu();                          \
-            assert(my_core >= 0 && my_core < UINT8_MAX);                \
-        }                                                               \
-        OPA_incr_int(&(lock)->nwaiters);                                  \
+        OPA_incr_int(&(lock)->nwaiters);                                \
     } while (0)
 
 #define LOCK_ACQUIRE_EXIT_HOOK(lock)                                    \
     do {                                                                \
         if (MPIDUI_lock_tracing_enabled) {                              \
             lock_trace[lock_trace_idx].nwaiters = (uint8_t) OPA_load_int(&(lock)->nwaiters);\
-            lock_trace[lock_trace_idx].holder = my_core;                \
         }                                                               \
-        OPA_decr_int(&(lock)->nwaiters);                                  \
-        lock_progress_counter_old = lock_progress_counter;              \
+        OPA_decr_int(&(lock)->nwaiters);                                \
     } while (0)
 
 #define LOCK_ACQUIRE_L_ENTRY_HOOK(lock)                                 \
     do {                                                                \
-        OPA_incr_int(&(lock)->nwaiters);                                  \
+        OPA_incr_int(&(lock)->nwaiters);                                \
     } while (0)
 
 #define LOCK_ACQUIRE_L_EXIT_HOOK(lock)                                  \
     do {                                                                \
-        if (MPIDUI_lock_tracing_enabled) {                                 \
+        if (MPIDUI_lock_tracing_enabled) {                              \
             lock_trace[lock_trace_idx].nwaiters = (uint8_t) OPA_load_int(&(lock)->nwaiters);\
-            lock_trace[lock_trace_idx].holder = my_core;                \
         }                                                               \
-        OPA_decr_int(&(lock)->nwaiters);                                  \
-        lock_progress_counter_old = lock_progress_counter;              \
+        OPA_decr_int(&(lock)->nwaiters);                                \
     } while (0)
 
 #define LOCK_RELEASE_ENTRY_HOOK                                         \
     do {                                                                \
-        uint16_t progress = lock_progress_counter - lock_progress_counter_old;\
-        if (MPIDUI_lock_tracing_enabled) {                                 \
-            lock_trace[lock_trace_idx].progress = progress;             \
-            if(lock_trace[lock_trace_idx].event == lock_trace[lock_trace_idx - 1].event)\
+        if (MPIDUI_lock_tracing_enabled) {                              \
+            if(lock_trace[lock_trace_idx].nwaiters == lock_trace[lock_trace_idx - 1].nwaiters)\
                 lock_trace[lock_trace_idx - 1].count++;                 \
             else {                                                      \
                 lock_trace[lock_trace_idx].count = 1;                   \
@@ -164,6 +147,163 @@ extern int MPIDUI_lock_tracing_enabled;
         if(unlikely(lock_trace_idx >= LOCK_TRACE_LEN))                  \
             dump_lock_trace();                                          \
     } while (0)
+
+#elif defined(MPICH_LOCK_TRACE_HOLDER)
+
+extern __thread uint8_t my_core;
+struct trace_elmt {
+    uint8_t holder;
+    uint32_t count;            // count for the same event
+};
+
+#include <sched.h>
+#include <unistd.h>
+#define dump_lock_trace()                                               \
+    do {                                                                \
+        if (unlikely(lock_trace_fd == NULL)) {                          \
+            char filename[20];                                          \
+            sprintf(filename, "%d.csv", MPIR_Process.comm_world->rank); \
+            lock_trace_fd = fopen(filename, "w");                       \
+            fprintf(lock_trace_fd, "holder,count\n");                   \
+        }                                                               \
+        for(int i=1; i<lock_trace_idx; i++)                             \
+            fprintf(lock_trace_fd, "%d,%d\n",                           \
+                                    lock_trace[i].holder,               \
+                                    lock_trace[i].count);               \
+        memset(lock_trace, 0, LOCK_TRACE_LEN*sizeof(trace_elmt_t));     \
+        lock_trace_idx = 0;                                             \
+    } while (0)
+
+#define LOCK_CREATE_ENTRY_HOOK(lock)                                    \
+    do {                                                                \
+        lock_trace_idx = 1;                                             \
+        OPA_store_int(&(lock)->nwaiters, 0);                            \
+        lock_trace = (trace_elmt_t*) MPL_malloc (LOCK_TRACE_LEN*sizeof(trace_elmt_t));\
+        lock_trace[0].holder = UINT8_MAX;                               \
+        lock_trace[0].count = UINT32_MAX;                               \
+    } while (0)
+
+#define LOCK_DESTROY_ENTRY_HOOK                                         \
+    do {                                                                \
+        dump_lock_trace();                                              \
+        fclose(lock_trace_fd);                                          \
+        MPL_free(lock_trace);                                           \
+    } while (0)
+
+#define LOCK_ACQUIRE_ENTRY_HOOK(lock)                                   \
+    do {                                                                \
+        if(unlikely(my_core == UINT8_MAX)) {                            \
+            my_core = (uint8_t)sched_getcpu();                          \
+            assert(my_core >= 0 && my_core < UINT8_MAX);                \
+        }                                                               \
+    } while (0)
+
+#define LOCK_ACQUIRE_EXIT_HOOK(lock)                                    \
+    do {                                                                \
+        if (MPIDUI_lock_tracing_enabled) {                              \
+            lock_trace[lock_trace_idx].holder = my_core;                \
+        }                                                               \
+    } while (0)
+
+#define LOCK_ACQUIRE_L_ENTRY_HOOK(lock)                                 \
+
+#define LOCK_ACQUIRE_L_EXIT_HOOK(lock)                                  \
+    do {                                                                \
+        if (MPIDUI_lock_tracing_enabled) {                              \
+            lock_trace[lock_trace_idx].holder = my_core;                \
+        }                                                               \
+    } while (0)
+
+#define LOCK_RELEASE_ENTRY_HOOK                                         \
+    do {                                                                \
+        if (MPIDUI_lock_tracing_enabled) {                              \
+            if(lock_trace[lock_trace_idx].holder == lock_trace[lock_trace_idx - 1].holder)\
+                lock_trace[lock_trace_idx - 1].count++;                 \
+            else {                                                      \
+                lock_trace[lock_trace_idx].count = 1;                   \
+                lock_trace_idx++;                                       \
+            }                                                           \
+        }                                                               \
+        if(unlikely(lock_trace_idx >= LOCK_TRACE_LEN))                  \
+            dump_lock_trace();                                          \
+    } while (0)
+
+#elif defined(MPICH_LOCK_TRACE_PROGRESS)
+
+extern __thread int lock_progress_counter;
+static __thread int lock_progress_counter_old;
+struct trace_elmt {
+    uint16_t progress; // number of ops performed in pt2pt (creation, completion, destruction)
+    uint32_t count;            // count for the same event
+};
+
+#include <sched.h>
+#include <unistd.h>
+#define dump_lock_trace()                                               \
+    do {                                                                \
+        if (unlikely(lock_trace_fd == NULL)) {                          \
+            char filename[20];                                          \
+            sprintf(filename, "%d.csv", MPIR_Process.comm_world->rank); \
+            lock_trace_fd = fopen(filename, "w");                       \
+            fprintf(lock_trace_fd, "pgrs,count\n");                     \
+        }                                                               \
+        for(int i=1; i<lock_trace_idx; i++)                             \
+            fprintf(lock_trace_fd, "%d,%d\n",                           \
+                                    lock_trace[i].progress,             \
+                                    lock_trace[i].count);               \
+        memset(lock_trace, 0, LOCK_TRACE_LEN*sizeof(trace_elmt_t));     \
+        lock_trace_idx = 0;                                             \
+    } while (0)
+
+#define LOCK_CREATE_ENTRY_HOOK(lock)                                    \
+    do {                                                                \
+        lock_trace_idx = 1;                                             \
+        OPA_store_int(&(lock)->nwaiters, 0);                            \
+        lock_trace = (trace_elmt_t*) MPL_malloc (LOCK_TRACE_LEN*sizeof(trace_elmt_t));\
+        lock_trace[0].progress = UINT16_MAX;                            \
+        lock_trace[0].count = UINT32_MAX;                               \
+    } while (0)
+
+#define LOCK_DESTROY_ENTRY_HOOK                                         \
+    do {                                                                \
+        dump_lock_trace();                                              \
+        fclose(lock_trace_fd);                                          \
+        MPL_free(lock_trace);                                           \
+    } while (0)
+
+#define LOCK_ACQUIRE_ENTRY_HOOK(lock)                                   \
+
+#define LOCK_ACQUIRE_EXIT_HOOK(lock)                                    \
+    do {                                                                \
+        lock_progress_counter_old = lock_progress_counter;              \
+    } while (0)
+
+#define LOCK_ACQUIRE_L_ENTRY_HOOK(lock)                                 \
+
+#define LOCK_ACQUIRE_L_EXIT_HOOK(lock)                                  \
+    do {                                                                \
+        lock_progress_counter_old = lock_progress_counter;              \
+    } while (0)
+
+#define LOCK_RELEASE_ENTRY_HOOK                                         \
+    do {                                                                \
+        uint16_t progress = lock_progress_counter - lock_progress_counter_old;\
+        if (MPIDUI_lock_tracing_enabled) {                              \
+            lock_trace[lock_trace_idx].progress = progress;             \
+            if(lock_trace[lock_trace_idx].progress == lock_trace[lock_trace_idx - 1].progress)\
+                lock_trace[lock_trace_idx - 1].count++;                 \
+            else {                                                      \
+                lock_trace[lock_trace_idx].count = 1;                   \
+                lock_trace_idx++;                                       \
+            }                                                           \
+        }                                                               \
+        if(unlikely(lock_trace_idx >= LOCK_TRACE_LEN))                  \
+            dump_lock_trace();                                          \
+    } while (0)
+
+#else
+#error "WHAT DO YOU WANNA TRACE DURING LOCK ACQUISITIONS?"
+#endif
 
 #else /* DEFAULT */
 
