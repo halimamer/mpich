@@ -16,6 +16,13 @@
 #endif
 
 #ifdef MPICH_LOCK_TRACING
+
+#if defined(MPICH_LOCK_TRACE_WAITERS)
+int num_nodes;
+__thread uint8_t my_node;
+OPA_align_int_t* waiters_pernode;
+#endif
+
 int lock_trace_idx        = 0;
 trace_elmt_t* lock_trace  = NULL;
 __thread uint8_t my_core  = UINT8_MAX;

@@ -71,6 +71,12 @@ extern int MPIDUI_lock_tracing_enabled;
 
 #if defined(MPICH_LOCK_TRACE_WAITERS)
 
+#include <numa.h>
+typedef OPA_int_t OPA_align_int_t __attribute__((aligned(64)));
+extern int num_nodes;
+extern __thread uint8_t my_node;
+extern OPA_align_int_t* waiters_pernode;
+
 struct trace_elmt {
     uint8_t nwaiters;
     uint32_t count;            // count for the same event
@@ -99,6 +105,11 @@ struct trace_elmt {
         lock_trace = (trace_elmt_t*) MPL_malloc (LOCK_TRACE_LEN*sizeof(trace_elmt_t));\
         lock_trace[0].nwaiters = UINT8_MAX;                             \
         lock_trace[0].count = UINT32_MAX;                               \
+        num_nodes = numa_num_configured_nodes();                        \
+        waiters_pernode = (OPA_align_int_t*) MPL_malloc (num_nodes*sizeof(OPA_align_int_t));\
+        int n = 0;                                                      \
+        for (n=0; n < num_nodes; n++)                                   \
+            OPA_store_int(&waiters_pernode[n], 0);                      \
     } while (0)
 
 #define LOCK_DESTROY_ENTRY_HOOK                                         \
@@ -106,32 +117,39 @@ struct trace_elmt {
         dump_lock_trace();                                              \
         fclose(lock_trace_fd);                                          \
         MPL_free(lock_trace);                                           \
+        MPL_free(waiters_pernode);                                      \
     } while (0)
 
 #define LOCK_ACQUIRE_ENTRY_HOOK(lock)                                   \
     do {                                                                \
-        OPA_incr_int(&(lock)->nwaiters);                                \
+        OPA_incr_int(&waiters_pernode[my_node]);                        \
     } while (0)
 
 #define LOCK_ACQUIRE_EXIT_HOOK(lock)                                    \
     do {                                                                \
         if (MPIDUI_lock_tracing_enabled) {                              \
-            lock_trace[lock_trace_idx].nwaiters = (uint8_t) OPA_load_int(&(lock)->nwaiters);\
+            lock_trace[lock_trace_idx].nwaiters = 0;                    \
+            int n = 0;                                                  \
+            for (n=0; n < num_nodes; n++)                               \
+                lock_trace[lock_trace_idx].nwaiters += OPA_load_int(&waiters_pernode[n]);\
         }                                                               \
-        OPA_decr_int(&(lock)->nwaiters);                                \
+        OPA_decr_int(&waiters_pernode[my_node]);                        \
     } while (0)
 
 #define LOCK_ACQUIRE_L_ENTRY_HOOK(lock)                                 \
     do {                                                                \
-        OPA_incr_int(&(lock)->nwaiters);                                \
+        OPA_incr_int(&waiters_pernode[my_node]);                        \
     } while (0)
 
 #define LOCK_ACQUIRE_L_EXIT_HOOK(lock)                                  \
     do {                                                                \
         if (MPIDUI_lock_tracing_enabled) {                              \
-            lock_trace[lock_trace_idx].nwaiters = (uint8_t) OPA_load_int(&(lock)->nwaiters);\
+            lock_trace[lock_trace_idx].nwaiters = 0;                    \
+            int n = 0;                                                  \
+            for (n=0; n < num_nodes; n++)                               \
+                lock_trace[lock_trace_idx].nwaiters += OPA_load_int(&waiters_pernode[n]);\
         }                                                               \
-        OPA_decr_int(&(lock)->nwaiters);                                \
+        OPA_decr_int(&waiters_pernode[my_node]);                        \
     } while (0)
 
 #define LOCK_RELEASE_ENTRY_HOOK                                         \
@@ -195,6 +213,7 @@ struct trace_elmt {
         if(unlikely(my_core == UINT8_MAX)) {                            \
             my_core = (uint8_t)sched_getcpu();                          \
             assert(my_core >= 0 && my_core < UINT8_MAX);                \
+            my_node = numa_node_of_cpu(my_core);                        \
         }                                                               \
     } while (0)
 
