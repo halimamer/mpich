@@ -122,6 +122,9 @@ struct trace_elmt {
 
 #define LOCK_ACQUIRE_ENTRY_HOOK(lock)                                   \
     do {                                                                \
+        if(unlikely(my_node == UINT8_MAX)) {                            \
+            my_node = numa_node_of_cpu(my_core);                        \
+        }                                                               \
         OPA_incr_int(&waiters_pernode[my_node]);                        \
     } while (0)
 
@@ -213,7 +216,6 @@ struct trace_elmt {
         if(unlikely(my_core == UINT8_MAX)) {                            \
             my_core = (uint8_t)sched_getcpu();                          \
             assert(my_core >= 0 && my_core < UINT8_MAX);                \
-            my_node = numa_node_of_cpu(my_core);                        \
         }                                                               \
     } while (0)
 

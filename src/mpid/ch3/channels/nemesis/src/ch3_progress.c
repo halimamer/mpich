@@ -19,7 +19,7 @@
 
 #if defined(MPICH_LOCK_TRACE_WAITERS)
 int num_nodes;
-__thread uint8_t my_node;
+__thread uint8_t my_node  = UINT8_MAX;
 OPA_align_int_t* waiters_pernode;
 #endif
 
