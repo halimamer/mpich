@@ -107,6 +107,22 @@ static MPIR_T_pvar_timer_t PVAR_TIMER_time_matching_unexpectedq ATTRIBUTE((unuse
 /* used in ch3u_eager.c and ch3u_handle_recv_pkt.c */
 unsigned long long PVAR_LEVEL_unexpected_recvq_buffer_size ATTRIBUTE((unused));
 
+unsigned long long MPIR_T_get_recv_issued() {
+    return PVAR_COUNTER_recv_issued;
+}
+unsigned MPIR_T_get_posted_recvq_length() {
+    return PVAR_LEVEL_posted_recvq_length;
+}
+unsigned MPIR_T_get_unexpected_recvq_length() {
+    return PVAR_LEVEL_unexpected_recvq_length;
+}
+unsigned long long MPIR_T_get_posted_recvq_match_attempts() {
+    return PVAR_COUNTER_posted_recvq_match_attempts;
+}
+unsigned long long MPIR_T_get_unexpected_recvq_match_attempts() {
+    return PVAR_COUNTER_unexpected_recvq_match_attempts;
+}
+
 #undef FUNCNAME
 #define FUNCNAME MPIDI_CH3U_Recvq_init
 #undef FCNAME

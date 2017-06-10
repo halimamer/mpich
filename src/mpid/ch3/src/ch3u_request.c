@@ -10,6 +10,16 @@ static unsigned int PVAR_COUNTER_tot_req_created;
 static unsigned int PVAR_COUNTER_tot_req_complet;
 static unsigned int PVAR_COUNTER_tot_req_freed;
 
+unsigned int MPIR_T_get_req_created() {
+    return PVAR_COUNTER_tot_req_created;
+}
+unsigned int MPIR_T_get_req_complet() {
+    return PVAR_COUNTER_tot_req_complet;
+}
+unsigned int MPIR_T_get_req_freed() {
+    return PVAR_COUNTER_tot_req_freed;
+}
+
 #if defined(MPICH_LOCK_TRACING)
 /* even if the counter overflows, it is still fine.
    We care about (new - old) values between lock acquisitions,
