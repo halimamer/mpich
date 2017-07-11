@@ -305,6 +305,7 @@ typedef struct MPIDI_CH4_Global_t {
     int progress_hook_id;
 
     /* Asynchronous progress thread for hand-off */
+    int n_progress_threads;
     MPID_Thread_id_t progress_thread_ids[MPIDI_CH4_MAX_PROGRESS_THREADS];
     OPA_int_t n_active_progress_threads;
     OPA_int_t progress_thread_exit_signal;

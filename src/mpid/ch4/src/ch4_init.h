@@ -95,6 +95,16 @@ cvars:
       description : >-
         Specifies the work queue type
 
+    - name        : MPIR_CVAR_CH4_MAX_PROGRESS_THREADS
+      category    : CH4
+      type        : int
+      default     : -1
+      class       : device
+      verbosity   : MPI_T_VERBOSITY_USER_BASIC
+      scope       : MPI_T_SCOPE_ALL_EQ
+      description : >-
+        If set to positive, this specifies the maximum number of progress threads
+
 === END_MPI_T_CVAR_INFO_BLOCK ===
 */
 
@@ -493,16 +503,37 @@ MPL_STATIC_INLINE_PREFIX int MPID_Init(int *argc,
     MPIDI_CH4_Global.is_initialized = 0;
 
     if (MPIDI_CH4_MT_MODEL == MPIDI_CH4_MT_HANDOFF && *provided >= MPI_THREAD_MULTIPLE) {
+        int nparams;
+
+        MPIDI_CH4_Global.n_progress_threads = MPIDI_CH4_Global.n_netmod_vnis;
+        /* Limit to system maximum */
+        MPIDI_CH4_Global.n_progress_threads
+            = MPL_MIN(MPIDI_CH4_MAX_PROGRESS_THREADS, MPIDI_CH4_Global.n_progress_threads);
+        /* Limit to user-defined maximum */
+        if (MPIR_CVAR_CH4_MAX_PROGRESS_THREADS > 0)
+            MPIDI_CH4_Global.n_progress_threads
+                = MPL_MIN(MPIR_CVAR_CH4_MAX_PROGRESS_THREADS, MPIDI_CH4_Global.n_progress_threads);
+
         OPA_store_int(&MPIDI_CH4_Global.n_active_progress_threads, 0);
         OPA_store_int(&MPIDI_CH4_Global.progress_thread_exit_signal, 0);
-        for (i = 0; i < MPIDI_CH4_Global.n_netmod_vnis; i++) {
-            int *thr_param = MPL_malloc(sizeof(int));
-            *thr_param = i;
+
+        /* max vni per thread + 1 (header information == n_vnis) */
+        nparams = MPIDI_CH4_Global.n_netmod_vnis / MPIDI_CH4_Global.n_progress_threads + 2;
+
+        for (i = 0; i < MPIDI_CH4_Global.n_progress_threads; i++) {
+            int j, k = 1;
+            int *thr_param = MPL_malloc(sizeof(int) * nparams);
+
+            /* TODO: try out other assignment algorithms */
+            for (j = i; j < MPIDI_CH4_Global.n_netmod_vnis; j += MPIDI_CH4_Global.n_progress_threads)
+                thr_param[k++] = j;
+            thr_param[0] = k-1; /* header: n_vnis */
+
             /* Pass ownership of the parameter object to the thread */
             MPID_Thread_create((MPID_Thread_func_t) MPIDI_progress_thread_fn, thr_param, &MPIDI_CH4_Global.progress_thread_ids[i], &thr_err);
             MPIR_ERR_CHKANDJUMP1(thr_err, mpi_errno, MPI_ERR_OTHER, "**thread_create", "**thread_create %s", strerror(thr_err));
         }
-        while (OPA_load_int(&MPIDI_CH4_Global.n_active_progress_threads) < MPIDI_CH4_Global.n_netmod_vnis);
+        while (OPA_load_int(&MPIDI_CH4_Global.n_active_progress_threads) < MPIDI_CH4_Global.n_progress_threads);
     }
 
   fn_exit:

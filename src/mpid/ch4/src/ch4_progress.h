@@ -234,7 +234,8 @@ MPL_STATIC_INLINE_PREFIX int MPID_Progress_deactivate(int id)
 #define FCNAME MPL_QUOTE(FUNCNAME)
 MPL_STATIC_INLINE_PREFIX void MPIDI_progress_thread_fn(void *data)
 {
-    int vni_idx = *((int *) data);
+    int i, vni_idx, n_vnis = *((int *) data);
+    const int *vnis = ((int *) data) + 1;
     MPIR_FUNC_VERBOSE_STATE_DECL(MPID_STATE_MPIDI_PROGRESS_THREAD_FN);
     MPIR_FUNC_VERBOSE_ENTER(MPID_STATE_MPIDI_PROGRESS_THREAD_FN);
 
@@ -248,8 +249,11 @@ MPL_STATIC_INLINE_PREFIX void MPIDI_progress_thread_fn(void *data)
     while (OPA_load_int(&MPIR_Process.mpich_state) < MPICH_MPI_STATE__POST_INIT);
 
     do {
-        MPIDI_workq_vni_progress(vni_idx);
-        MPIDI_NM_progress(vni_idx, 0);
+        for (i = 0; i < n_vnis; i++) {
+            vni_idx = vnis[i];
+            MPIDI_workq_vni_progress(vni_idx);
+            MPIDI_NM_progress(vni_idx, 0);
+        }
     } while (OPA_load_int(&MPIDI_CH4_Global.progress_thread_exit_signal) == 0);
     OPA_decr_int(&MPIDI_CH4_Global.n_active_progress_threads);
 
