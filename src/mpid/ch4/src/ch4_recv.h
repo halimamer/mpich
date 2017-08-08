@@ -301,7 +301,7 @@ MPL_STATIC_INLINE_PREFIX int MPID_Irecv(void *buf,
 
         MPIDI_DISPATCH(IRECV, mpi_errno,
                        buf, count, datatype, rank, tag,
-                       comm, context_offset, NULL /* addr */
+                       comm, context_offset, NULL /* addr */,
                        &(MPIDI_CH4I_REQUEST_ANYSOURCE_PARTNER(*request)));
 
         if (mpi_errno != MPI_SUCCESS) {
@@ -324,7 +324,7 @@ MPL_STATIC_INLINE_PREFIX int MPID_Irecv(void *buf,
             MPIDI_DISPATCH(IRECV, mpi_errno,
                           buf, count, datatype, rank, tag,
                           comm, context_offset, NULL /* addr */,
-                          request, mpi_errno);
+                          request);
         if (mpi_errno == MPI_SUCCESS && *request) {
             MPIDI_CH4I_REQUEST(*request, is_local) = r;
             MPIDI_CH4I_REQUEST_ANYSOURCE_PARTNER(*request) = NULL;
