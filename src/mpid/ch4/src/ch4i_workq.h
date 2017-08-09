@@ -158,24 +158,13 @@ MPL_STATIC_INLINE_PREFIX void MPIDI_workq_finalize(struct MPIDI_workq *q)
         (elem)->win_ptr,                                        \
         (elem)->rma_addr
 
-#define MPIDI_INVOKE_DIRECT_SEND(args...) MPIDI_NM_mpi_send(args)
-#define MPIDI_INVOKE_DIRECT_ISEND(args...) MPIDI_NM_mpi_isend(args)
-#define MPIDI_INVOKE_DIRECT_RECV(args...) MPIDI_NM_mpi_recv(args)
-#define MPIDI_INVOKE_DIRECT_IRECV(args...) MPIDI_NM_mpi_irecv(args)
-#define MPIDI_INVOKE_DIRECT_PUT(args...) MPIDI_NM_mpi_put(args)
+#define MPIDI_INVOKE_DEFERRED_SEND(elem)    MPIDI_NM_mpi_send(MPIDI_EXTRACT_SEND_ARGS(elem))
+#define MPIDI_INVOKE_DEFERRED_ISEND(elem)   MPIDI_NM_mpi_isend(MPIDI_EXTRACT_SEND_ARGS(elem))
+#define MPIDI_INVOKE_DEFERRED_RECV(elem)    MPIDI_NM_mpi_recv(MPIDI_EXTRACT_RECV_ARGS(elem))
+#define MPIDI_INVOKE_DEFERRED_IRECV(elem)   MPIDI_NM_mpi_irecv(MPIDI_EXTRACT_IRECV_ARGS(elem))
+#define MPIDI_INVOKE_DEFERRED_PUT(elem)     MPIDI_NM_mpi_put(MPIDI_EXTRACT_PUTGET_ARGS(elem))
 
-#define MPIDI_INVOKE_DEFERRED_SEND(elem) MPIDI_NM_mpi_send(MPIDI_EXTRACT_SEND_ARGS(elem))
-#define MPIDI_INVOKE_DEFERRED_ISEND(elem) MPIDI_NM_mpi_isend(MPIDI_EXTRACT_SEND_ARGS(elem))
-#define MPIDI_INVOKE_DEFERRED_RECV(elem) MPIDI_NM_mpi_recv(MPIDI_EXTRACT_RECV_ARGS(elem))
-#define MPIDI_INVOKE_DEFERRED_IRECV(elem) MPIDI_NM_mpi_irecv(MPIDI_EXTRACT_IRECV_ARGS(elem))
-#define MPIDI_INVOKE_DEFERRED_PUT(elem) MPIDI_NM_mpi_put(MPIDI_EXTRACT_PUTGET_ARGS(elem))
 
-#define MPIDI_INVOKE_DEFERRED(op, elem)                         \
-    case op: {                                                  \
-        mpi_errno = MPIDI_INVOKE_DEFERRED_##op(elem);           \
-            if (mpi_errno != MPI_SUCCESS) goto fn_fail;         \
-        break;                                                  \
-    }
 
 /* For profiling */
 extern double MPIDI_pt2pt_enqueue_time;
@@ -294,11 +283,12 @@ static inline int MPIDI_workq_dispatch(MPIDI_workq_elemt_t* workq_elemt)
     int mpi_errno = MPI_SUCCESS;
 
     switch(workq_elemt->op) {
-        MPIDI_INVOKE_DEFERRED(SEND, workq_elemt);
-        MPIDI_INVOKE_DEFERRED(ISEND, workq_elemt);
-        MPIDI_INVOKE_DEFERRED(RECV, workq_elemt);
-        MPIDI_INVOKE_DEFERRED(IRECV, workq_elemt);
-        MPIDI_INVOKE_DEFERRED(PUT, workq_elemt);
+        case SEND:  MPIDI_NM_mpi_send(MPIDI_EXTRACT_SEND_ARGS(workq_elemt));   break;
+        case ISEND: MPIDI_NM_mpi_isend(MPIDI_EXTRACT_SEND_ARGS(workq_elemt));  break;
+        case RECV:  MPIDI_NM_mpi_recv(MPIDI_EXTRACT_RECV_ARGS(workq_elemt));   break;
+        case IRECV: MPIDI_NM_mpi_irecv(MPIDI_EXTRACT_IRECV_ARGS(workq_elemt)); break;
+        case PUT:   MPIDI_NM_mpi_put(MPIDI_EXTRACT_PUTGET_ARGS(workq_elemt));  break;
+        default: mpi_errno = MPI_ERR_OTHER; goto fn_fail;
     }
 
 fn_fail:
@@ -441,42 +431,5 @@ static inline int MPIDI_workq_global_progress(int* made_progress)
     }
     return mpi_errno;
 }
-
-#define MPIDI_ENQUEUE_SEND(opval, vni_idx, buf, count, datatype, rank, tag, comm, context_offset, addr, request) \
-    MPIDI_workq_pt2pt_enqueue(opval, buf, NULL /* recv_buf */, count, datatype, \
-                              rank, tag, comm, context_offset, addr, vni_idx, \
-                              NULL /* status */, *request)
-#define MPIDI_ENQUEUE_ISEND MPIDI_ENQUEUE_SEND
-#define MPIDI_ENQUEUE_RECV(opval, vni_idx, buf, count, datatype, rank, tag, comm, context_offset, addr, status, request) \
-    MPIDI_workq_pt2pt_enqueue(opval, NULL /* send_buf */, buf, count, datatype, \
-                              rank, tag, comm, context_offset, addr, vni_idx, \
-                              status, *request)
-
-#define MPIDI_ENQUEUE_IRECV(opval, vni_idx, buf, count, datatype, rank, tag, comm, context_offset, addr, request) \
-    MPIDI_workq_pt2pt_enqueue(opval, NULL /* send_buf */, buf, count, datatype, \
-                              rank, tag, comm, context_offset, addr, vni_idx, \
-                              NULL /* status */, *request)
-#define MPIDI_ENQUEUE_PUT(opval, vni_idx, origin_addr, origin_count, origin_datatype, target_rank, \
-                          target_disp, target_count, target_datatype, win, addr) \
-    MPIDI_workq_rma_enqueue(vni_idx, origin_addr, origin_count, origin_datatype, target_rank, \
-                            target_disp, target_count, target_datatype, win, addr)
-/*
-  MPIDI_DISPATCH - dispatching macro for each MPI functions
-  args must include an argument called `request`, of type `MPIR_Request **`
-*/
-#define MPIDI_DISPATCH(op, mpi_errno, args...)                          \
-    do {                                                                \
-        int vni_idx_, cs_acq = 0;                                       \
-        MPIDI_find_tag_vni(comm, rank, tag, &vni_idx_);                 \
-        MPID_THREAD_CS_TRYENTER(VNI, MPIDI_CH4_Global.vni_locks[vni_idx_], cs_acq); \
-        if(!cs_acq) {                                               \
-            *(request) = MPIR_Request_create(MPIDI_REQUEST_KIND_##op); \
-            MPIDI_ENQUEUE_##op(op, vni_idx_, args);                 \
-            (mpi_errno) = MPI_SUCCESS;                              \
-        } else {                                                    \
-            mpi_errno = MPIDI_INVOKE_DIRECT_##op(args);             \
-            MPID_THREAD_CS_EXIT(VNI, MPIDI_CH4_Global.vni_locks[vni_idx_]); \
-        }                                                           \
-    } while (0)
 
 #endif /* CH4I_WORKQ_H_INCLUDED */
