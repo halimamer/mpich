@@ -30,7 +30,7 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_send_nm(const void *buf,
 
     int vni_idx, cs_acq = 0;
     MPIDI_find_tag_vni(comm, rank, tag, &vni_idx);
-    MPID_THREAD_CS_TRYENTER(VNI, MPIDI_CH4_Global.vni_locks[vni_idx], cs_acq);
+    MPID_THREAD_SAFE_BEGIN(VNI, MPIDI_CH4_Global.vni_locks[vni_idx], cs_acq);
     if(!cs_acq) {
         *(request) = MPIR_Request_create(MPIDI_REQUEST_KIND_SEND);
         MPIDI_workq_pt2pt_enqueue(SEND, buf, NULL /*recv_buf*/, count, datatype, \
@@ -39,7 +39,7 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_send_nm(const void *buf,
         (mpi_errno) = MPI_SUCCESS;
     } else {
         mpi_errno = MPIDI_NM_mpi_send(buf, count, datatype, rank, tag, comm, context_offset, NULL, request);
-        MPID_THREAD_CS_EXIT(VNI, MPIDI_CH4_Global.vni_locks[vni_idx]);
+        MPID_THREAD_SAFE_END(VNI, MPIDI_CH4_Global.vni_locks[vni_idx]);
     }
 
     if (mpi_errno != MPI_SUCCESS) {
@@ -68,7 +68,7 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_isend_nm(const void *buf,
 
     int vni_idx, cs_acq = 0;
     MPIDI_find_tag_vni(comm, rank, tag, &vni_idx);
-    MPID_THREAD_CS_TRYENTER(VNI, MPIDI_CH4_Global.vni_locks[vni_idx], cs_acq);
+    MPID_THREAD_SAFE_BEGIN(VNI, MPIDI_CH4_Global.vni_locks[vni_idx], cs_acq);
     if(!cs_acq) {
         *(request) = MPIR_Request_create(MPIDI_REQUEST_KIND_SEND);
         MPIDI_workq_pt2pt_enqueue(SEND, buf, NULL /*recv_buf*/, count, datatype, \
@@ -77,7 +77,7 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_isend_nm(const void *buf,
         (mpi_errno) = MPI_SUCCESS;
     } else {
         mpi_errno = MPIDI_NM_mpi_isend(buf, count, datatype, rank, tag, comm, context_offset, NULL, request);
-        MPID_THREAD_CS_EXIT(VNI, MPIDI_CH4_Global.vni_locks[vni_idx]);
+        MPID_THREAD_SAFE_END(VNI, MPIDI_CH4_Global.vni_locks[vni_idx]);
     }
 
     if (mpi_errno != MPI_SUCCESS) {
