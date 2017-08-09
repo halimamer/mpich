@@ -468,30 +468,15 @@ static inline int MPIDI_workq_global_progress(int* made_progress)
     do {                                                                \
         int vni_idx_, cs_acq = 0;                                       \
         MPIDI_find_tag_vni(comm, rank, tag, &vni_idx_);                 \
-        if (MPIDI_CH4_MT_MODEL == MPIDI_CH4_MT_TRYLOCK) {               \
-            MPID_THREAD_CS_TRYENTER(VNI, MPIDI_CH4_Global.vni_locks[vni_idx_], cs_acq); \
-            if(!cs_acq) {                                               \
-                *(request) = MPIR_Request_create(MPIDI_REQUEST_KIND_##op); \
-                MPIDI_ENQUEUE_##op(op, vni_idx_, args);                 \
-                (mpi_errno) = MPI_SUCCESS;                              \
-            } else {                                                    \
-                mpi_errno = MPIDI_INVOKE_DIRECT_##op(args);             \
-                MPID_THREAD_CS_EXIT(VNI, MPIDI_CH4_Global.vni_locks[vni_idx_]); \
-            }                                                           \
-        } else {                                                        \
-            /* Direct && Handoff */                                     \
-            if (MPIDI_CH4_MT_MODEL == MPIDI_CH4_MT_HANDOFF) {           \
-                *(request) = MPIR_Request_create(MPIDI_REQUEST_KIND_##op); \
-            }                                                           \
-            if (MPIDI_CH4_MT_MODEL == MPIDI_CH4_MT_HANDOFF && MPIR_ThreadInfo.isThreaded) { \
-                MPIDI_ENQUEUE_##op(op, vni_idx_, args);                 \
-                (mpi_errno) = MPI_SUCCESS;                              \
-            } else {                                                    \
-                MPID_THREAD_CS_ENTER(VNI, MPIDI_CH4_Global.vni_locks[vni_idx_]); \
-                mpi_errno = MPIDI_INVOKE_DIRECT_##op(args);             \
-                MPID_THREAD_CS_EXIT(VNI, MPIDI_CH4_Global.vni_locks[vni_idx_]); \
-            }                                                           \
-        }                                                               \
+        MPID_THREAD_CS_TRYENTER(VNI, MPIDI_CH4_Global.vni_locks[vni_idx_], cs_acq); \
+        if(!cs_acq) {                                               \
+            *(request) = MPIR_Request_create(MPIDI_REQUEST_KIND_##op); \
+            MPIDI_ENQUEUE_##op(op, vni_idx_, args);                 \
+            (mpi_errno) = MPI_SUCCESS;                              \
+        } else {                                                    \
+            mpi_errno = MPIDI_INVOKE_DIRECT_##op(args);             \
+            MPID_THREAD_CS_EXIT(VNI, MPIDI_CH4_Global.vni_locks[vni_idx_]); \
+        }                                                           \
     } while (0)
 
 #endif /* CH4I_WORKQ_H_INCLUDED */
