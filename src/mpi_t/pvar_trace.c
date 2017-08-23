@@ -15,7 +15,7 @@ FILE *PVAR_TRACE_fd;
 timer_data_t        PVAR_TRACE_timer;
 long long           PVAR_TRACE_interval;
 unsigned            PVAR_TRACE_index;
-double              PVAR_TRACE_time_zero;
+double              PVAR_TRACE_time_prev;
 
 struct PVAR_TRACE_entry {
     double             timestamp;
@@ -42,18 +42,18 @@ FILE               *PVAR_TRACE_fd;
 static void PVAR_TRACE_dump_trace() {
         unsigned i;
         for( i=0; i< PVAR_TRACE_index; i++) {
-            fprintf(PVAR_TRACE_fd, "%.6f, ", PVAR_TRACE_buffer[i].timestamp);
+            fprintf(PVAR_TRACE_fd, "%.3f", 1e3*PVAR_TRACE_buffer[i].timestamp);
 #if ENABLE_PVAR_RECVQ
-            fprintf(PVAR_TRACE_fd, "%llu,", PVAR_TRACE_buffer[i].recv_issued);
-            fprintf(PVAR_TRACE_fd, "%u,",   PVAR_TRACE_buffer[i].posted_recvq_length);
-            fprintf(PVAR_TRACE_fd, "%u,",   PVAR_TRACE_buffer[i].unexpected_recvq_length);
-            fprintf(PVAR_TRACE_fd, "%llu,", PVAR_TRACE_buffer[i].posted_recvq_match_attempts);
-            fprintf(PVAR_TRACE_fd, "%llu,", PVAR_TRACE_buffer[i].unexpected_recvq_match_attempts);
+            fprintf(PVAR_TRACE_fd, ",%llu", PVAR_TRACE_buffer[i].recv_issued);
+            fprintf(PVAR_TRACE_fd, ",%u",   PVAR_TRACE_buffer[i].posted_recvq_length);
+            fprintf(PVAR_TRACE_fd, ",%u",   PVAR_TRACE_buffer[i].unexpected_recvq_length);
+            fprintf(PVAR_TRACE_fd, ",%llu", PVAR_TRACE_buffer[i].posted_recvq_match_attempts);
+            fprintf(PVAR_TRACE_fd, ",%llu", PVAR_TRACE_buffer[i].unexpected_recvq_match_attempts);
 #endif
 #if ENABLE_PVAR_REQUEST
-            fprintf(PVAR_TRACE_fd, "%llu,", PVAR_TRACE_buffer[i].req_created);
-            fprintf(PVAR_TRACE_fd, "%llu, ", PVAR_TRACE_buffer[i].req_completed);
-            fprintf(PVAR_TRACE_fd, "%llu,",  PVAR_TRACE_buffer[i].req_freed);
+            fprintf(PVAR_TRACE_fd, ",%llu", PVAR_TRACE_buffer[i].req_created);
+            fprintf(PVAR_TRACE_fd, ",%llu", PVAR_TRACE_buffer[i].req_completed);
+            fprintf(PVAR_TRACE_fd, ",%llu",  PVAR_TRACE_buffer[i].req_freed);
 #endif
             fprintf(PVAR_TRACE_fd, "\n");
         }
@@ -63,10 +63,12 @@ static void PVAR_TRACE_dump_trace() {
 
 void PVAR_TRACE_timer_handler(int sig, siginfo_t *si, void *uc) {
 
-    double timestamp = PMPI_Wtime() - PVAR_TRACE_time_zero;
+    double timestamp = PMPI_Wtime();
+    double duration = timestamp - PVAR_TRACE_time_prev;
+    PVAR_TRACE_time_prev = timestamp;
 
     if(PVAR_TRACE_index + 1 < MPIR_CVAR_TRACE_BUFFER_LENGTH) {
-        PVAR_TRACE_buffer[PVAR_TRACE_index].timestamp = timestamp;
+        PVAR_TRACE_buffer[PVAR_TRACE_index].timestamp = duration;
 #if ENABLE_PVAR_RECVQ
         cur_entry.recv_issued                           = MPIR_T_get_recv_issued();
         cur_entry.posted_recvq_length                   = MPIR_T_get_posted_recvq_length();
@@ -108,7 +110,7 @@ void MPIR_T_init_trace() {
     int my_rank = MPIR_Process.comm_world->rank;
     int my_pid = getpid();
     char filename[30];
-    sprintf(filename, "%d_%d.trace", my_rank, my_pid);
+    sprintf(filename, "%d_%d.csv", my_rank, my_pid);
     PVAR_TRACE_fd = fopen(filename, "w");
     fprintf(PVAR_TRACE_fd, "time");
     if(ENABLE_PVAR_RECVQ)
@@ -116,7 +118,7 @@ void MPIR_T_init_trace() {
     if(ENABLE_PVAR_REQUEST)
         fprintf(PVAR_TRACE_fd, ",created_reqs,completed_reqs,freed_reqs");
     fprintf(PVAR_TRACE_fd, "\n");
-    PVAR_TRACE_time_zero = PMPI_Wtime() ;
+    PVAR_TRACE_time_prev = PMPI_Wtime() ;
     start_sampling(&PVAR_TRACE_timer, PVAR_TRACE_interval, PVAR_TRACE_timer_handler);
 }
 
