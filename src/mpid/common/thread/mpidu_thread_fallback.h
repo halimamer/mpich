@@ -326,6 +326,35 @@ struct trace_elmt {
 #error "WHAT DO YOU WANNA TRACE DURING LOCK ACQUISITIONS?"
 #endif
 
+#elif defined(MPICH_MUTEX_LOCATION)
+
+extern short cs_location;
+
+#define MUTEX_ENTRY_LOC 0
+#define MUTEX_PROGRESS_LOC 1
+#define MUTEX_INVALID_LOC (-1)
+
+#define LOCK_CREATE_ENTRY_HOOK(lock)
+#define LOCK_DESTROY_ENTRY_HOOK
+#define LOCK_ACQUIRE_ENTRY_HOOK(lock)
+
+#define LOCK_ACQUIRE_EXIT_HOOK(lock)                                    \
+    do {                                                                \
+        cs_location = MUTEX_ENTRY_LOC;                               \
+    } while (0)
+
+#define LOCK_ACQUIRE_L_ENTRY_HOOK(lock)                                 \
+
+#define LOCK_ACQUIRE_L_EXIT_HOOK(lock)                                  \
+    do {                                                                \
+        cs_location = MUTEX_PROGRESS_LOC;                            \
+    } while (0)
+
+#define LOCK_RELEASE_ENTRY_HOOK                                         \
+    do {                                                                \
+        cs_location = MUTEX_INVALID_LOC;                             \
+    } while (0)
+
 #else /* DEFAULT */
 
 #define LOCK_CREATE_ENTRY_HOOK

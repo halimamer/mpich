@@ -609,8 +609,8 @@ extern void MPIR_T_PVAR_REGISTER_impl(
     } while (0)
 #define MPIR_T_PVAR_COUNTER_ARRAY_GET_VAR_impl(ptr_, idx_) \
     *((ptr_) + (idx_))
-#define MPIR_T_PVAR_COUNTER_ARRAY_INC_VAR_impl(ptr_, idx_, inc_) \
-    do { *((ptr_) + (idx_)) += (inc_); } while (0)
+#define MPIR_T_PVAR_COUNTER_ARRAY_INC_VAR_impl(array_, idx_, inc_) \
+    do { array_[idx_] += (inc_); } while (0)
 
 #define MPIR_T_PVAR_COUNTER_ARRAY_INIT_impl(name_) \
     do { \
@@ -620,7 +620,7 @@ extern void MPIR_T_PVAR_REGISTER_impl(
     } while (0)
 #define MPIR_T_PVAR_COUNTER_ARRAY_GET_impl(name_, idx_) \
     MPIR_T_PVAR_COUNTER_ARRAY_GET_VAR_impl(PVAR_COUNTER_##name_, idx_)
-#define MPIR_T_PVAR_COUNTER_ARRAY_INC_impl(ptr_, idx_, inc_) \
+#define MPIR_T_PVAR_COUNTER_ARRAY_INC_impl(name_, idx_, inc_) \
     MPIR_T_PVAR_COUNTER_ARRAY_INC_VAR_impl(PVAR_COUNTER_##name_, idx_, inc_)
 
 /* Registration AND initialization to zero for static counter array  */
@@ -636,7 +636,7 @@ extern void MPIR_T_PVAR_REGISTER_impl(
         MPIR_Assert(sizeof(PVAR_COUNTER_##name_[0]) == MPID_Datatype_get_basic_size(dtype_)); \
         addr_ = PVAR_COUNTER_##name_; \
         MPIR_T_PVAR_COUNTER_ARRAY_INIT_impl(name_); \
-        count_ = sizeof(PVAR_COUNTER_##name_)/sizeof(mpit_pvar_##name_[0]); \
+        count_ = sizeof(PVAR_COUNTER_##name_)/sizeof(PVAR_COUNTER_##name_[0]); \
         MPIR_T_PVAR_REGISTER_impl(MPI_T_PVAR_CLASS_COUNTER, dtype_, #name_, \
             addr_, count_, MPI_T_ENUM_NULL, verb_, bind_, flags_, NULL, NULL, cat_, desc_); \
     } while (0)

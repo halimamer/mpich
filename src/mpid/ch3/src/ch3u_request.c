@@ -6,18 +6,23 @@
 
 #include "mpidimpl.h"
 
-static unsigned int PVAR_COUNTER_tot_req_created;
-static unsigned int PVAR_COUNTER_tot_req_complet;
-static unsigned int PVAR_COUNTER_tot_req_freed;
+/* 'cs_location' tracks in which critical section the current thread is in. 
+    It currently understand "entry" and "progress" locations; the entry of
+    an MPI routine and the CS of the progress engine resp. */
+short cs_location = 0;
 
-unsigned int MPIR_T_get_req_created() {
-    return PVAR_COUNTER_tot_req_created;
+static unsigned int PVAR_COUNTER_tot_req_created[2];
+static unsigned int PVAR_COUNTER_tot_req_complet[2];
+static unsigned int PVAR_COUNTER_tot_req_freed[2];
+
+unsigned int MPIR_T_get_req_created(short location) {
+    return PVAR_COUNTER_tot_req_created[location];
 }
-unsigned int MPIR_T_get_req_complet() {
-    return PVAR_COUNTER_tot_req_complet;
+unsigned int MPIR_T_get_req_complet(short location) {
+    return PVAR_COUNTER_tot_req_complet[location];
 }
-unsigned int MPIR_T_get_req_freed() {
-    return PVAR_COUNTER_tot_req_freed;
+unsigned int MPIR_T_get_req_freed(short location) {
+    return PVAR_COUNTER_tot_req_freed[location];
 }
 
 #if defined(MPICH_LOCK_TRACING)
@@ -36,7 +41,7 @@ __thread int lock_progress_counter;
 int MPIDI_CH3U_Request_init(void)
 {
     int mpi_errno = MPI_SUCCESS;
-    MPIR_T_PVAR_COUNTER_REGISTER_STATIC(
+    MPIR_T_PVAR_COUNTER_ARRAY_REGISTER_STATIC(
         REQUEST,
         MPI_UNSIGNED,
         tot_req_created,
@@ -45,7 +50,7 @@ int MPIDI_CH3U_Request_init(void)
         (MPIR_T_PVAR_FLAG_READONLY | MPIR_T_PVAR_FLAG_CONTINUOUS),
         "CH3", /* category name */
         "total number of requests created");
-    MPIR_T_PVAR_COUNTER_REGISTER_STATIC(
+    MPIR_T_PVAR_COUNTER_ARRAY_REGISTER_STATIC(
         REQUEST,
         MPI_UNSIGNED,
         tot_req_complet,
@@ -54,7 +59,7 @@ int MPIDI_CH3U_Request_init(void)
         (MPIR_T_PVAR_FLAG_READONLY | MPIR_T_PVAR_FLAG_CONTINUOUS),
         "CH3", /* category name */
         "total number of requests completed");
-    MPIR_T_PVAR_COUNTER_REGISTER_STATIC(
+    MPIR_T_PVAR_COUNTER_ARRAY_REGISTER_STATIC(
         REQUEST,
         MPI_UNSIGNED,
         tot_req_freed,
@@ -127,7 +132,7 @@ void MPID_Request_create_hook(MPIR_Request *req)
 #ifdef MPIDI_CH3_REQUEST_INIT
     MPIDI_CH3_REQUEST_INIT(req);
 #endif
-    MPIR_T_PVAR_COUNTER_INC(REQUEST, tot_req_created, 1);
+    MPIR_T_PVAR_COUNTER_ARRAY_INC(REQUEST, tot_req_created, cs_location, 1);
 #if defined(MPICH_LOCK_TRACING)
     lock_progress_counter++;
 #endif
@@ -653,7 +658,7 @@ int MPID_Request_complete(MPIR_Request *req)
         if (req->completion_notification)
             MPIR_cc_decr(req->completion_notification, &notify_counter);
 
-    MPIR_T_PVAR_COUNTER_INC(REQUEST, tot_req_complet, 1);
+    MPIR_T_PVAR_COUNTER_ARRAY_INC(REQUEST, tot_req_complet, cs_location, 1);
 #if defined(MPICH_LOCK_TRACING)
     lock_progress_counter++;
 #endif
@@ -691,7 +696,7 @@ void MPID_Request_destroy_hook(MPIR_Request *req)
         MPL_free(req->dev.ext_hdr_ptr);
     }
 
-    MPIR_T_PVAR_COUNTER_INC(REQUEST, tot_req_freed, 1);
+    MPIR_T_PVAR_COUNTER_ARRAY_INC(REQUEST, tot_req_freed, cs_location, 1);
 #if defined(MPICH_LOCK_TRACING)
     lock_progress_counter++;
 #endif

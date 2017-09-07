@@ -27,9 +27,9 @@ struct PVAR_TRACE_entry {
     unsigned long long unexpected_recvq_match_attempts;
 #endif
 #if ENABLE_PVAR_REQUEST
-    unsigned long long req_created;
-    unsigned long long req_completed;
-    unsigned long long req_freed;
+    unsigned long long req_created[2];
+    unsigned long long req_completed[2];
+    unsigned long long req_freed[2];
 #endif
 };
 
@@ -51,9 +51,11 @@ static void PVAR_TRACE_dump_trace() {
             fprintf(PVAR_TRACE_fd, ",%llu", PVAR_TRACE_buffer[i].unexpected_recvq_match_attempts);
 #endif
 #if ENABLE_PVAR_REQUEST
-            fprintf(PVAR_TRACE_fd, ",%llu", PVAR_TRACE_buffer[i].req_created);
-            fprintf(PVAR_TRACE_fd, ",%llu", PVAR_TRACE_buffer[i].req_completed);
-            fprintf(PVAR_TRACE_fd, ",%llu",  PVAR_TRACE_buffer[i].req_freed);
+            for (int j = 0 ; j < 2; j++) {
+                fprintf(PVAR_TRACE_fd, ",%llu", PVAR_TRACE_buffer[i].req_created[j]);
+                fprintf(PVAR_TRACE_fd, ",%llu", PVAR_TRACE_buffer[i].req_completed[j]);
+                fprintf(PVAR_TRACE_fd, ",%llu",  PVAR_TRACE_buffer[i].req_freed[j]);
+            }
 #endif
             fprintf(PVAR_TRACE_fd, "\n");
         }
@@ -83,12 +85,14 @@ void PVAR_TRACE_timer_handler(int sig, siginfo_t *si, void *uc) {
 
 #endif
 #if ENABLE_PVAR_REQUEST
-        cur_entry.req_created                           = MPIR_T_get_req_created();
-        cur_entry.req_completed                         = MPIR_T_get_req_complet();
-        cur_entry.req_freed                             = MPIR_T_get_req_freed();
-        PVAR_TRACE_buffer[PVAR_TRACE_index].req_created   = cur_entry.req_created   - old_entry.req_created;
-        PVAR_TRACE_buffer[PVAR_TRACE_index].req_completed = cur_entry.req_completed - old_entry.req_completed;
-        PVAR_TRACE_buffer[PVAR_TRACE_index].req_freed     = cur_entry.req_freed     - old_entry.req_freed;
+        for (int i = 0; i < 2; i++) {
+            cur_entry.req_created[i]                           = MPIR_T_get_req_created(i);
+            cur_entry.req_completed[i]                         = MPIR_T_get_req_complet(i);
+            cur_entry.req_freed[i]                             = MPIR_T_get_req_freed(i);
+            PVAR_TRACE_buffer[PVAR_TRACE_index].req_created[i]   = cur_entry.req_created[i]   - old_entry.req_created[i];
+            PVAR_TRACE_buffer[PVAR_TRACE_index].req_completed[i] = cur_entry.req_completed[i] - old_entry.req_completed[i];
+            PVAR_TRACE_buffer[PVAR_TRACE_index].req_freed[i]     = cur_entry.req_freed[i]     - old_entry.req_freed[i];
+        }
 #endif
         memcpy(&old_entry, &cur_entry, sizeof(struct PVAR_TRACE_entry));
         PVAR_TRACE_index++;
@@ -116,7 +120,7 @@ void MPIR_T_init_trace() {
     if(ENABLE_PVAR_RECVQ)
         fprintf(PVAR_TRACE_fd, ",recv_issued,postedq_len,unexpq_len,postedq_match_atmpts,unexpq_match_atmpts");
     if(ENABLE_PVAR_REQUEST)
-        fprintf(PVAR_TRACE_fd, ",created_reqs,completed_reqs,freed_reqs");
+        fprintf(PVAR_TRACE_fd, ",entry_create,entry_complet,entry_free,prog_create,prog_complet,prog_free");
     fprintf(PVAR_TRACE_fd, "\n");
     PVAR_TRACE_time_prev = PMPI_Wtime() ;
     start_sampling(&PVAR_TRACE_timer, PVAR_TRACE_interval, PVAR_TRACE_timer_handler);
