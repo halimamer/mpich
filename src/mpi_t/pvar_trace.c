@@ -27,9 +27,11 @@ struct PVAR_TRACE_entry {
     unsigned long long unexpected_recvq_match_attempts;
 #endif
 #if ENABLE_PVAR_REQUEST
-    unsigned long long req_created[2];
-    unsigned long long req_completed[2];
-    unsigned long long req_freed[2];
+    unsigned int req_created[2];
+    unsigned int req_completed[2];
+    unsigned int req_freed[2];
+    unsigned long main_path_count;
+    unsigned long progress_path_count;
 #endif
 };
 
@@ -56,6 +58,8 @@ static void PVAR_TRACE_dump_trace() {
                 fprintf(PVAR_TRACE_fd, ",%llu", PVAR_TRACE_buffer[i].req_completed[j]);
                 fprintf(PVAR_TRACE_fd, ",%llu",  PVAR_TRACE_buffer[i].req_freed[j]);
             }
+            fprintf(PVAR_TRACE_fd, ",%llu", PVAR_TRACE_buffer[i].main_path_count);
+            fprintf(PVAR_TRACE_fd, ",%llu", PVAR_TRACE_buffer[i].progress_path_count);
 #endif
             fprintf(PVAR_TRACE_fd, "\n");
         }
@@ -93,6 +97,10 @@ void PVAR_TRACE_timer_handler(int sig, siginfo_t *si, void *uc) {
             PVAR_TRACE_buffer[PVAR_TRACE_index].req_completed[i] = cur_entry.req_completed[i] - old_entry.req_completed[i];
             PVAR_TRACE_buffer[PVAR_TRACE_index].req_freed[i]     = cur_entry.req_freed[i]     - old_entry.req_freed[i];
         }
+        cur_entry.main_path_count                              = MPIR_T_get_main_path_count();
+        cur_entry.progress_path_count                          = MPIR_T_get_progress_path_count();
+        PVAR_TRACE_buffer[PVAR_TRACE_index].main_path_count    = cur_entry.main_path_count    - old_entry.main_path_count;
+        PVAR_TRACE_buffer[PVAR_TRACE_index].progress_path_count = cur_entry.progress_path_count - old_entry.progress_path_count;
 #endif
         memcpy(&old_entry, &cur_entry, sizeof(struct PVAR_TRACE_entry));
         PVAR_TRACE_index++;
@@ -120,7 +128,7 @@ void MPIR_T_init_trace() {
     if(ENABLE_PVAR_RECVQ)
         fprintf(PVAR_TRACE_fd, ",recv_issued,postedq_len,unexpq_len,postedq_match_atmpts,unexpq_match_atmpts");
     if(ENABLE_PVAR_REQUEST)
-        fprintf(PVAR_TRACE_fd, ",entry_create,entry_complet,entry_free,prog_create,prog_complet,prog_free");
+        fprintf(PVAR_TRACE_fd, ",main_count,prog_count,entry_create,entry_complet,entry_free,prog_create,prog_complet,prog_free");
     fprintf(PVAR_TRACE_fd, "\n");
     PVAR_TRACE_time_prev = PMPI_Wtime() ;
     start_sampling(&PVAR_TRACE_timer, PVAR_TRACE_interval, PVAR_TRACE_timer_handler);

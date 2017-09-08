@@ -10,11 +10,19 @@
     It currently understand "entry" and "progress" locations; the entry of
     an MPI routine and the CS of the progress engine resp. */
 short cs_location = 0;
+unsigned long main_path_counter = 0;
+unsigned long progress_path_counter = 0;
 
 static unsigned int PVAR_COUNTER_tot_req_created[2];
 static unsigned int PVAR_COUNTER_tot_req_complet[2];
 static unsigned int PVAR_COUNTER_tot_req_freed[2];
 
+unsigned long MPIR_T_get_main_path_count() {
+    return main_path_counter;
+}
+unsigned long MPIR_T_get_progress_path_count() {
+    return progress_path_counter;
+}
 unsigned int MPIR_T_get_req_created(short location) {
     return PVAR_COUNTER_tot_req_created[location];
 }

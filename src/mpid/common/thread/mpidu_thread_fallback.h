@@ -329,6 +329,8 @@ struct trace_elmt {
 #elif defined(MPICH_MUTEX_LOCATION)
 
 extern short cs_location;
+extern unsigned long main_path_counter;
+extern unsigned long progress_path_counter;
 
 #define MUTEX_ENTRY_LOC 0
 #define MUTEX_PROGRESS_LOC 1
@@ -340,14 +342,16 @@ extern short cs_location;
 
 #define LOCK_ACQUIRE_EXIT_HOOK(lock)                                    \
     do {                                                                \
-        cs_location = MUTEX_ENTRY_LOC;                               \
+        cs_location = MUTEX_ENTRY_LOC;                                  \
+        main_path_counter++;                                            \
     } while (0)
 
 #define LOCK_ACQUIRE_L_ENTRY_HOOK(lock)                                 \
 
 #define LOCK_ACQUIRE_L_EXIT_HOOK(lock)                                  \
     do {                                                                \
-        cs_location = MUTEX_PROGRESS_LOC;                            \
+        cs_location = MUTEX_PROGRESS_LOC;                               \
+        progress_path_counter++;                                        \
     } while (0)
 
 #define LOCK_RELEASE_ENTRY_HOOK                                         \

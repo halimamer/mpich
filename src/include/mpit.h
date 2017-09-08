@@ -458,6 +458,8 @@ unsigned MPIR_T_get_unexpected_recvq_length();
 unsigned long long MPIR_T_get_posted_recvq_match_attempts();
 unsigned long long MPIR_T_get_unexpected_recvq_match_attempts();
 
+unsigned long MPIR_T_get_main_path_count();
+unsigned long MPIR_T_get_progress_path_count();
 unsigned int MPIR_T_get_req_created(short);
 unsigned int MPIR_T_get_req_complet(short);
 unsigned int MPIR_T_get_req_freed(short);
