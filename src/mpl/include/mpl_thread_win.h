@@ -12,9 +12,8 @@
 
 #include <windows.h>
 
+#if !defined(MPL_ENABLE_IZEM_SYNC)
 typedef HANDLE MPL_thread_mutex_t;
-typedef HANDLE MPL_thread_id_t;
-typedef DWORD MPL_thread_tls_t;
 
 typedef struct MPLI_win_thread_cond_fifo_t {
     HANDLE event;
@@ -25,6 +24,10 @@ typedef struct MPL_thread_cond_t {
     MPL_thread_mutex_t fifo_mutex;
     MPLI_win_thread_cond_fifo_t *fifo_head, *fifo_tail;
 } MPL_thread_cond_t;
+#endif
+
+typedef HANDLE MPL_thread_id_t;
+typedef DWORD MPL_thread_tls_t;
 
 typedef void (*MPL_thread_func_t) (void *data);
 
@@ -34,6 +37,7 @@ void MPL_thread_self(MPL_thread_id_t * id);
 void MPL_thread_same(MPL_thread_id_t * id1, MPL_thread_id_t * id2, int *same);
 void MPL_thread_yield();
 
+#if !defined(MPL_ENABLE_IZEM_SYNC)
 void MPL_thread_mutex_create(MPL_thread_mutex_t * mutex, int *err);
 void MPL_thread_mutex_destroy(MPL_thread_mutex_t * mutex, int *err);
 void MPL_thread_mutex_lock(MPL_thread_mutex_t * mutex, int *err);
@@ -44,6 +48,7 @@ void MPL_thread_cond_destroy(MPL_thread_cond_t * cond, int *err);
 void MPL_thread_cond_wait(MPL_thread_cond_t * cond, MPL_thread_mutex_t * mutex, int *err);
 void MPL_thread_cond_broadcast(MPL_thread_cond_t * cond, int *err);
 void MPL_thread_cond_signal(MPL_thread_cond_t * cond, int *err);
+#endif /* MPL_ENABLE_IZEM_SYNC */
 
 /*
  * Thread Local Storage

@@ -4,6 +4,12 @@
 #     See COPYRIGHT in top-level directory.
 #
 
+SUBDIR =
+
+if MPL_ENABLE_IZEM
+SUBDIR += src/izem
+endif
+
 ACLOCAL_AMFLAGS = -I confdb
 AM_CPPFLAGS = -I$(top_srcdir)/include -I$(top_builddir)/include
 

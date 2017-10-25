@@ -10,8 +10,10 @@
 #include <thread.h>
 #include <synch.h>
 
+#if !defined(MPL_ENABLE_IZEM_SYNC)
 typedef mutex_t MPL_thread_mutex_t;
 typedef cond_t MPL_thread_cond_t;
+#endif
 typedef thread_t MPL_thread_id_t;
 typedef thread_key_t MPL_thread_tls_t;
 
@@ -43,6 +45,8 @@ void MPL_thread_create(MPL_thread_func_t func, void *data, MPL_thread_id_t * id,
 /*
  *    Mutexes
  */
+
+#if !defined(MPL_ENABLE_IZEM_SYNC)
 
 #define MPL_thread_mutex_create(mutex_ptr_, err_ptr_)                   \
     do {                                                                \
@@ -148,6 +152,7 @@ void MPL_thread_create(MPL_thread_func_t func, void *data, MPL_thread_id_t * id,
         }								\
     } while (0)
 
+#endif /* MPL_ENABLE_IZEM_SYNC */
 
 /*
  * Thread Local Storage

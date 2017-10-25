@@ -103,6 +103,8 @@ void MPL_thread_yield(void)
  *    Mutexes
  */
 
+#if !defined(MPL_ENABLE_IZEM_SYNC)
+
 void MPL_thread_mutex_create(MPL_thread_mutex_t * mutex, int *err)
 {
     *mutex = CreateMutex(NULL, FALSE, NULL);
@@ -348,5 +350,7 @@ void MPL_thread_cond_signal(MPL_thread_cond_t * cond, int *err)
         *err = MPL_THREAD_SUCCESS;
     }
 }
+
+#endif /* MPL_ENABLE_IZEM_SYNC */
 
 #endif

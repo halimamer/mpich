@@ -16,8 +16,10 @@
 #include <errno.h>
 #include <pthread.h>
 
+#if !defined(MPL_ENABLE_IZEM_SYNC)
 typedef pthread_mutex_t MPL_thread_mutex_t;
 typedef pthread_cond_t MPL_thread_cond_t;
+#endif
 typedef pthread_t MPL_thread_id_t;
 typedef pthread_key_t MPL_thread_tls_t;
 
@@ -49,6 +51,8 @@ void MPL_thread_create(MPL_thread_func_t func, void *data, MPL_thread_id_t * id,
 /*
  *    Mutexes
  */
+
+#if !defined(MPL_ENABLE_IZEM_SYNC)
 
 /* FIXME: mutex creation and destruction should be implemented as routines
    because there is no reason to use macros (these are not on the performance
@@ -195,6 +199,7 @@ void MPL_thread_create(MPL_thread_func_t func, void *data, MPL_thread_id_t * id,
         *(int *)(err_ptr_) = err__;                                     \
     } while (0)
 
+#endif /* MPL_ENABLE_IZEM_SYNC */
 
 /*
  * Thread Local Storage

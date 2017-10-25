@@ -35,6 +35,10 @@ typedef void (*MPL_thread_func_t) (void *data);
 #  error "thread package (MPL_THREAD_PACKAGE_NAME) not defined or unknown"
 #endif
 
+#if defined(MPL_ENABLE_IZEM_SYNC) && (MPL_THREAD_PACKAGE_NAME != MPL_THREAD_PACKAGE_NONE)
+#include "mpl_thread_izem.h"
+#endif
+
 /* Error values */
 #define MPL_THREAD_SUCCESS 0
 #define MPL_THREAD_ERROR   1

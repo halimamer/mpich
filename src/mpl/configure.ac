@@ -751,6 +751,68 @@ AC_DEFINE_UNQUOTED([THREAD_PACKAGE_NAME],[$THREAD_PACKAGE_NAME],[set to the name
 # check for compiler-support for thread-local storage (MPL_TLS_SPECIFIER)
 AX_TLS
 
+# Izem
+AC_ARG_VAR([ZMLIBNAME],[can be used to override the name of the Izem library (default: "zm")])
+ZMLIBNAME=${ZMLIBNAME:-"zm"}
+export ZMLIBNAME
+AC_SUBST(ZMLIBNAME)
+AC_ARG_WITH([zm-prefix],
+            [AS_HELP_STRING([[--with-zm-prefix[=DIR]]],
+                            [use the Izem library installed in DIR,
+                             rather than the one included in src/izem.  Pass
+                             "embedded" to force usage of the Izem source
+                             distributed with MPICH.])],
+            [],
+            [# see if Izem is already installed on the system
+             PAC_PUSH_FLAG([LIBS])
+             PAC_PREPEND_FLAG([-l${ZMLIBNAME}],[LIBS])
+             AC_LINK_IFELSE([AC_LANG_PROGRAM([dnl
+#include "lock/zm_ticket.h"
+],[
+zm_ticket_t lock;
+zm_ticket_init(&lock);
+zm_ticket_acquire(&lock);
+zm_ticket_release(&lock);
+])dnl
+                             ],
+                            [with_zm_prefix=system],[with_zm_prefix=embedded])
+             PAC_POP_FLAG([LIBS])
+             ])
+
+zmsrcdir=""
+AC_SUBST([zmsrcdir])
+zmlibdir=""
+AC_SUBST([zmlibdir])
+zmlib=""
+AC_SUBST([zmlib])
+
+if test "$with_zm_prefix" = "embedded" ; then
+    if test -e "${srcdir}/src/izem" ; then
+        # no need for libtool versioning when embedding Izem
+        zm_subdir_args="--enable-embedded"
+        PAC_CONFIG_SUBDIR_ARGS([src/izem],[$zm_subdir_args],[],[AC_MSG_ERROR(Izem configure failed)])
+
+        zmsrcdir="${srcdir}/src/izem"
+        zmlib="./src/izem/src/lib${ZMLIBNAME}.la"
+        PAC_APPEND_FLAG([-I${srcdir}/src/izem/src/include],[CPPFLAGS])
+        PAC_APPEND_FLAG([-I./src/izem/src/include],[CPPFLAGS])
+
+        PAC_CONFIG_SUBDIR_ARGS([src/izem],[$zm_subdir_args],[],[AC_MSG_ERROR([Izem configure failed])])
+    else
+        AC_MSG_WARN([Attempted to use the embedded Izem source tree in "src/izem", but it is missing.  Configuration or compilation may fail later.])
+    fi
+fi
+
+AC_ARG_ENABLE(izem-sync,
+        [AC_HELP_STRING([--enable-izem-sync],[Enable using synchronization primitives from the Izem library])],,
+        [enable_izem_sync=no])
+
+if test "$enable_izem_sync" = "yes" ; then
+    AC_DEFINE(ENABLE_IZEM_SYNC,1,[Define to enable using synchronization primitives from the Izem library])
+fi
+
+AM_CONDITIONAL([MPL_ENABLE_IZEM],[test "x${enable_izem_sync}" = "xyes"])
+
 #######################################################################
 ## END OF THREADS CODE
 #######################################################################
