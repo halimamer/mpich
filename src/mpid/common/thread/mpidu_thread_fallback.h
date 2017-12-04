@@ -447,6 +447,8 @@ M*/
     MPL_thread_mutex_lock(mutex_ptr_, err_ptr_)
 #define MPIDUI_thread_mutex_lock_l(mutex_ptr_, err_ptr_)                \
     MPL_thread_mutex_lock(mutex_ptr_, err_ptr_)
+#define MPIDUI_thread_mutex_trylock(mutex_ptr_, err_ptr_, cs_acq_ptr_)  \
+    MPL_thread_mutex_trylock(mutex_ptr_, err_ptr_, cs_acq_ptr_)
 #define MPIDUI_thread_mutex_unlock(mutex_ptr_, err_ptr_)                \
     MPL_thread_mutex_unlock(mutex_ptr_, err_ptr_)
 #define MPIDUI_thread_cond_create(cond_ptr_, err_ptr_)                  \
@@ -477,6 +479,11 @@ do {                                                                    \
 #define MPIDUI_thread_mutex_lock_l(mutex_ptr_, err_ptr_)                \
 do {                                                                    \
     *err_ptr_ = zm_lock_acquire_l(mutex_ptr_);                          \
+} while (0)
+#define MPIDUI_thread_mutex_trylock(mutex_ptr_, err_ptr_, cs_acq_ptr_)  \
+do {                                                                    \
+    /* FIXME: implement izem version of trylock */                      \
+    MPIR_Assert(0);                                                     \
 } while (0)
 #define MPIDUI_thread_mutex_unlock(mutex_ptr_, err_ptr_)                \
 do {                                                                    \
@@ -577,7 +584,7 @@ do {                                                                    \
     do {                                                                \
         OPA_incr_int(&(mutex_ptr_)->num_queued_threads);                \
         MPL_DBG_MSG_P(MPIR_DBG_THREAD,VERBOSE,"enter MPL_thread_mutex_lock %p", &(mutex_ptr_)->mutex); \
-        MPL_thread_mutex_trylock(&(mutex_ptr_)->mutex, err_ptr_, cs_acq_ptr);\
+        MPIDUI_thread_mutex_trylock(&(mutex_ptr_)->mutex, err_ptr_, cs_acq_ptr);\
         MPIR_Assert(*err_ptr_ == 0);                                    \
         MPL_DBG_MSG_P(MPIR_DBG_THREAD,VERBOSE,"exit MPL_thread_mutex_lock %p", &(mutex_ptr_)->mutex); \
         OPA_decr_int(&(mutex_ptr_)->num_queued_threads);                \
