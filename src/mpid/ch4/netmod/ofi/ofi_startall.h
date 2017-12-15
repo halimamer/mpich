@@ -24,6 +24,12 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_NM_mpi_startall(int count, MPIR_Request * req
     MPIR_FUNC_VERBOSE_STATE_DECL(MPID_STATE_MPIDI_NM_MPI_STARTALL);
     MPIR_FUNC_VERBOSE_ENTER(MPID_STATE_MPIDI_NM_MPI_STARTALL);
 
+#ifdef MPIDI_BUILD_CH4_SHM
+    const int shared_mem_path = 1;
+#else
+    const int shared_mem_path = 0;
+#endif
+
     if (!MPIDI_OFI_ENABLE_TAGGED) {
         mpi_errno = MPIDIG_mpi_startall(count, requests);
         goto fn_exit;
@@ -34,70 +40,90 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_NM_mpi_startall(int count, MPIR_Request * req
 
         switch (MPIDI_OFI_REQUEST(preq, util.persist.type)) {
             case MPIDI_PTYPE_RECV:
-#ifdef MPIDI_BUILD_CH4_SHM
-                mpi_errno = MPIDI_NM_mpi_irecv(MPIDI_OFI_REQUEST(preq, util.persist.buf),
-                                               MPIDI_OFI_REQUEST(preq, util.persist.count),
-                                               MPIDI_OFI_REQUEST(preq, datatype),
-                                               MPIDI_OFI_REQUEST(preq, util.persist.rank),
-                                               MPIDI_OFI_REQUEST(preq, util.persist.tag),
-                                               preq->comm,
-                                               MPIDI_OFI_REQUEST(preq,
-                                                                 util_id) -
-                                               preq->comm->recvcontext_id,
-                                               MPIDIU_comm_rank_to_av(preq->comm,
-                                                                      MPIDI_OFI_REQUEST(preq,
-                                                                                        util.persist.rank)),
-                                               &preq->u.persist.real_request);
+                if (shared_mem_path && !(MPIDI_CH4_MT_MODEL == MPIDI_CH4_MT_HANDOFF ||
+                                         MPIDI_CH4_MT_MODEL == MPIDI_CH4_MT_TRYLOCK)) {
+                    mpi_errno = MPIDI_NM_mpi_irecv(MPIDI_OFI_REQUEST(preq, util.persist.buf),
+                                                   MPIDI_OFI_REQUEST(preq, util.persist.count),
+                                                   MPIDI_OFI_REQUEST(preq, datatype),
+                                                   MPIDI_OFI_REQUEST(preq, util.persist.rank),
+                                                   MPIDI_OFI_REQUEST(preq, util.persist.tag),
+                                                   preq->comm,
+                                                   MPIDI_OFI_REQUEST(preq,
+                                                                     util_id) -
+                                                   preq->comm->recvcontext_id,
+                                                   MPIDIU_comm_rank_to_av(preq->comm,
+                                                                          MPIDI_OFI_REQUEST(preq,
+                                                                                            util.persist.rank)),
+                                                   &preq->u.persist.real_request);
+                } else {
+                    mpi_errno = MPID_Irecv(MPIDI_OFI_REQUEST(preq, util.persist.buf),
+                                           MPIDI_OFI_REQUEST(preq, util.persist.count),
+                                           MPIDI_OFI_REQUEST(preq, datatype),
+                                           MPIDI_OFI_REQUEST(preq, util.persist.rank),
+                                           MPIDI_OFI_REQUEST(preq, util.persist.tag),
+                                           preq->comm,
+                                           MPIDI_OFI_REQUEST(preq,
+                                                             util_id) - preq->comm->recvcontext_id,
+                                           &preq->u.persist.real_request);
+                }
                 break;
-#else
-                mpi_errno = MPID_Irecv(MPIDI_OFI_REQUEST(preq, util.persist.buf),
-                                       MPIDI_OFI_REQUEST(preq, util.persist.count),
-                                       MPIDI_OFI_REQUEST(preq, datatype),
-                                       MPIDI_OFI_REQUEST(preq, util.persist.rank),
-                                       MPIDI_OFI_REQUEST(preq, util.persist.tag),
-                                       preq->comm,
-                                       MPIDI_OFI_REQUEST(preq,
-                                                         util_id) - preq->comm->recvcontext_id,
-                                       &preq->u.persist.real_request);
-                break;
-#endif
 
             case MPIDI_PTYPE_SEND:
-#ifdef MPIDI_BUILD_CH4_SHM
-                mpi_errno = MPIDI_NM_mpi_isend(MPIDI_OFI_REQUEST(preq, util.persist.buf),
-                                               MPIDI_OFI_REQUEST(preq, util.persist.count),
-                                               MPIDI_OFI_REQUEST(preq, datatype),
-                                               MPIDI_OFI_REQUEST(preq, util.persist.rank),
-                                               MPIDI_OFI_REQUEST(preq, util.persist.tag),
-                                               preq->comm,
-                                               MPIDI_OFI_REQUEST(preq,
-                                                                 util_id) - preq->comm->context_id,
-                                               MPIDIU_comm_rank_to_av(preq->comm,
-                                                                      MPIDI_OFI_REQUEST(preq,
-                                                                                        util.persist.rank)),
-                                               &preq->u.persist.real_request);
+                if (shared_mem_path && !(MPIDI_CH4_MT_MODEL == MPIDI_CH4_MT_HANDOFF ||
+                                         MPIDI_CH4_MT_MODEL == MPIDI_CH4_MT_TRYLOCK)) {
+                    mpi_errno = MPIDI_NM_mpi_isend(MPIDI_OFI_REQUEST(preq, util.persist.buf),
+                                                   MPIDI_OFI_REQUEST(preq, util.persist.count),
+                                                   MPIDI_OFI_REQUEST(preq, datatype),
+                                                   MPIDI_OFI_REQUEST(preq, util.persist.rank),
+                                                   MPIDI_OFI_REQUEST(preq, util.persist.tag),
+                                                   preq->comm,
+                                                   MPIDI_OFI_REQUEST(preq,
+                                                                     util_id) -
+                                                   preq->comm->context_id,
+                                                   MPIDIU_comm_rank_to_av(preq->comm,
+                                                                          MPIDI_OFI_REQUEST(preq,
+                                                                                            util.persist.rank)),
+                                                   &preq->u.persist.real_request);
+                } else {
+                    mpi_errno = MPID_Isend(MPIDI_OFI_REQUEST(preq, util.persist.buf),
+                                           MPIDI_OFI_REQUEST(preq, util.persist.count),
+                                           MPIDI_OFI_REQUEST(preq, datatype),
+                                           MPIDI_OFI_REQUEST(preq, util.persist.rank),
+                                           MPIDI_OFI_REQUEST(preq, util.persist.tag),
+                                           preq->comm,
+                                           MPIDI_OFI_REQUEST(preq,
+                                                             util_id) - preq->comm->context_id,
+                                           &preq->u.persist.real_request);
+                }
                 break;
-#else
-                mpi_errno = MPID_Isend(MPIDI_OFI_REQUEST(preq, util.persist.buf),
-                                       MPIDI_OFI_REQUEST(preq, util.persist.count),
-                                       MPIDI_OFI_REQUEST(preq, datatype),
-                                       MPIDI_OFI_REQUEST(preq, util.persist.rank),
-                                       MPIDI_OFI_REQUEST(preq, util.persist.tag),
-                                       preq->comm,
-                                       MPIDI_OFI_REQUEST(preq, util_id) - preq->comm->context_id,
-                                       &preq->u.persist.real_request);
-                break;
-#endif
 
             case MPIDI_PTYPE_SSEND:
-                mpi_errno = MPID_Issend(MPIDI_OFI_REQUEST(preq, util.persist.buf),
-                                        MPIDI_OFI_REQUEST(preq, util.persist.count),
-                                        MPIDI_OFI_REQUEST(preq, datatype),
-                                        MPIDI_OFI_REQUEST(preq, util.persist.rank),
-                                        MPIDI_OFI_REQUEST(preq, util.persist.tag),
-                                        preq->comm,
-                                        MPIDI_OFI_REQUEST(preq, util_id) - preq->comm->context_id,
-                                        &preq->u.persist.real_request);
+                if (shared_mem_path && !(MPIDI_CH4_MT_MODEL == MPIDI_CH4_MT_HANDOFF ||
+                                         MPIDI_CH4_MT_MODEL == MPIDI_CH4_MT_TRYLOCK)) {
+                    mpi_errno = MPIDI_NM_mpi_issend(MPIDI_OFI_REQUEST(preq, util.persist.buf),
+                                                    MPIDI_OFI_REQUEST(preq, util.persist.count),
+                                                    MPIDI_OFI_REQUEST(preq, datatype),
+                                                    MPIDI_OFI_REQUEST(preq, util.persist.rank),
+                                                    MPIDI_OFI_REQUEST(preq, util.persist.tag),
+                                                    preq->comm,
+                                                    MPIDI_OFI_REQUEST(preq,
+                                                                      util_id) -
+                                                    preq->comm->context_id,
+                                                    MPIDIU_comm_rank_to_av(preq->comm,
+                                                                           MPIDI_OFI_REQUEST(preq,
+                                                                                             util.persist.rank)),
+                                                    &preq->u.persist.real_request);
+                } else {
+                    mpi_errno = MPID_Issend(MPIDI_OFI_REQUEST(preq, util.persist.buf),
+                                            MPIDI_OFI_REQUEST(preq, util.persist.count),
+                                            MPIDI_OFI_REQUEST(preq, datatype),
+                                            MPIDI_OFI_REQUEST(preq, util.persist.rank),
+                                            MPIDI_OFI_REQUEST(preq, util.persist.tag),
+                                            preq->comm,
+                                            MPIDI_OFI_REQUEST(preq,
+                                                              util_id) - preq->comm->context_id,
+                                            &preq->u.persist.real_request);
+                }
                 break;
 
             case MPIDI_PTYPE_BSEND:{
