@@ -47,11 +47,6 @@ typedef struct {
 
 #if (MPICH_THREAD_LEVEL == MPI_THREAD_MULTIPLE)
     int lock_depth;
-#if defined (ENABLE_IZEM)
-    zm_lock_ctxt_t lock_ctxt;
-#else
-    int lock_ctxt; /* dummy */
-#endif
 #endif
 } MPIR_Per_thread_t;
 
