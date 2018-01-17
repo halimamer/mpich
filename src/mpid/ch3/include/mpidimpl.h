@@ -1424,7 +1424,7 @@ int MPIDI_CH3U_Recvq_count_unexp(void);
 int MPIDI_CH3U_Complete_posted_with_error(MPIDI_VC_t *vc);
 int MPIDI_CH3U_Clean_recvq(MPIR_Comm *comm_ptr);
 
-int MPIR_CH3U_Request_init(void);
+int MPIDI_CH3U_Request_init(void);
 
 int MPIDI_CH3U_Request_load_send_iov(MPIR_Request * const sreq,
 				     MPL_IOV * const iov, int * const iov_n);
