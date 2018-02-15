@@ -321,7 +321,6 @@ int MPIR_Init_thread(int * argc, char ***argv, int required, int * provided)
     int has_args;
     int has_env;
     int thread_provided;
-    int exit_init_cs_on_failure = 0;
     MPIR_Info *info_ptr;
 
     /* For any code in the device that wants to check for runtime 
@@ -486,11 +485,6 @@ int MPIR_Init_thread(int * argc, char ***argv, int required, int * provided)
        MPID_Init if necessary */
     OPA_store_int(&MPIR_Process.mpich_state, MPICH_MPI_STATE__IN_INIT);
 
-    /* We can't acquire any critical sections until this point.  Any
-     * earlier the basic data structures haven't been initialized */
-    MPID_THREAD_CS_ENTER(GLOBAL, MPIR_THREAD_GLOBAL_ALLFUNC_MUTEX);
-    exit_init_cs_on_failure = 1;
-
     /* create MPI_INFO_NULL object */
     /* FIXME: Currently this info object is empty, we need to add data to this
        as defined by the standard. */
@@ -597,7 +591,6 @@ int MPIR_Init_thread(int * argc, char ***argv, int required, int * provided)
     if(ENABLE_PVAR_RECVQ || ENABLE_PVAR_REQUEST)
         MPIR_T_init_trace();
 
-    MPID_THREAD_CS_EXIT(GLOBAL, MPIR_THREAD_GLOBAL_ALLFUNC_MUTEX);
     /* Make fields of MPIR_Process global visible and set mpich_state
        atomically so that MPI_Initialized() etc. are thread safe */
     OPA_write_barrier();
@@ -609,9 +602,6 @@ fn_fail:
     /* signal to error handling routines that core services are unavailable */
     OPA_store_int(&MPIR_Process.mpich_state, MPICH_MPI_STATE__PRE_INIT);
 
-    if (exit_init_cs_on_failure) {
-        MPID_THREAD_CS_EXIT(GLOBAL, MPIR_THREAD_GLOBAL_ALLFUNC_MUTEX);
-    }
 #if defined(MPICH_IS_THREADED)
     MPIR_Thread_CS_Finalize();
 #endif
@@ -738,8 +728,6 @@ int MPI_Init_thread( int *argc, char ***argv, int required, int *provided )
 #   endif
     mpi_errno = MPIR_Err_return_comm( 0, FCNAME, mpi_errno );
     MPIR_FUNC_TERSE_INIT_EXIT(MPID_STATE_MPI_INIT_THREAD);
-
-    MPID_THREAD_CS_EXIT(GLOBAL, MPIR_THREAD_GLOBAL_ALLFUNC_MUTEX);
 
     return mpi_errno;
     /* --END ERROR HANDLING-- */
