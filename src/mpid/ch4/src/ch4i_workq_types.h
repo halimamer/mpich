@@ -6,6 +6,23 @@
 #ifndef CH4I_WORKQ_TYPES_H_INCLUDED
 #define CH4I_WORKQ_TYPES_H_INCLUDED
 
+/*
+  Multi-threading models
+*/
+enum {
+    MPIDI_CH4_MT_DIRECT,
+    MPIDI_CH4_MT_HANDOFF,
+    MPIDI_CH4_MT_TRYLOCK,
+
+    MPIDI_CH4_NUM_MT_MODELS,
+};
+
+static const char *MPIDI_CH4_mt_model_names[MPIDI_CH4_NUM_MT_MODELS] = {
+    "direct",
+    "handoff",
+    "trylock",
+};
+
 /* Define the work queue implementation type */
 #if defined(MPIDI_USE_NMQUEUE)
 #include <queue/zm_nmqueue.h>
