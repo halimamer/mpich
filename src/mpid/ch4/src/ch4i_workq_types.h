@@ -86,6 +86,7 @@ struct MPIDI_workq_elemt {
             MPI_Status *status;
             MPIR_Request *request;
             int *flag;      /* needed for the probe routines */
+            MPIR_Request **message; /* used for mprobe */
             OPA_int_t *processed;   /* set to true by the progress thread when
                                      * this work item is done */
         };

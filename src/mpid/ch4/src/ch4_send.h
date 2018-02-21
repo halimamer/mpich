@@ -39,7 +39,7 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_send(int transport,
             MPIDI_workq_pt2pt_enqueue(SEND, buf, NULL /*recv_buf */ , count, datatype,
                                       rank, tag, comm, context_offset, av, vni_idx,
                                       NULL /*status */ , *request, NULL /*flag */ ,
-                                      NULL /*processed */);
+                                      NULL /*message */ , NULL /*processed */);
             (mpi_errno) = MPI_SUCCESS;
         } else {
             mpi_errno =
@@ -84,7 +84,7 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_isend(int transport,
             MPIDI_workq_pt2pt_enqueue(SEND, buf, NULL /*recv_buf */ , count, datatype,
                                       rank, tag, comm, context_offset, av, vni_idx,
                                       NULL /*status */ , *request, NULL /*flag */ ,
-                                      NULL /*processed */);
+                                      NULL /*message */ , NULL /*processed */);
             (mpi_errno) = MPI_SUCCESS;
         } else {
             mpi_errno =
@@ -129,7 +129,7 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_ssend(int transport,
             MPIDI_workq_pt2pt_enqueue(SSEND, buf, NULL /*recv_buf */ , count, datatype,
                                       rank, tag, comm, context_offset, av, vni_idx,
                                       NULL /*status */ , *request, NULL /*flag */ ,
-                                      NULL /*processed */);
+                                      NULL /*message */ , NULL /*processed */);
             (mpi_errno) = MPI_SUCCESS;
 
         } else {
@@ -175,7 +175,7 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_issend(int transport,
             MPIDI_workq_pt2pt_enqueue(ISSEND, buf, NULL /*recv_buf */ , count, datatype,
                                       rank, tag, comm, context_offset, av, vni_idx,
                                       NULL /*status */ , *request, NULL /*flag */ ,
-                                      NULL /*processed */);
+                                      NULL /*message */ , NULL /*processed */);
             (mpi_errno) = MPI_SUCCESS;
         } else {
             mpi_errno =

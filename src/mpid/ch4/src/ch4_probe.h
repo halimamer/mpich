@@ -41,7 +41,8 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_iprobe(int transport,
             MPIDI_workq_pt2pt_enqueue(IPROBE, NULL /*send_buf */ , NULL /*buf */ , 0 /* count */ ,
                                       -1 /* datatype */ ,
                                       source, tag, comm, context_offset, av, vni_idx,
-                                      status, NULL /**request*/ , flag, &processed);
+                                      status, NULL /**request*/ , flag, NULL /*message */ ,
+                                      &processed);
             /* Busy loop to block until iprobe req is processed by the progress thread */
             while (!OPA_load_int(&processed));
             /* FIXME: alternatively may use yield, e.g., MPL_thread_yield if problem arises when
@@ -109,6 +110,59 @@ MPL_STATIC_INLINE_PREFIX int MPID_Probe(int source,
     goto fn_exit;
 }
 
+#undef FUNCNAME
+#define FUNCNAME MPIDI_improbe
+#undef FCNAME
+#define FCNAME MPL_QUOTE(FUNCNAME)
+MPL_STATIC_INLINE_PREFIX int MPIDI_improbe(int transport,
+                                           int source,
+                                           int tag, MPIR_Comm * comm,
+                                           int context_offset,
+                                           MPIDI_av_entry_t * av,
+                                           MPI_Status * status, int *flag, MPIR_Request ** message)
+{
+    int mpi_errno;
+    MPIR_FUNC_VERBOSE_STATE_DECL(MPID_STATE_MPIDI_IMPROBE);
+    MPIR_FUNC_VERBOSE_ENTER(MPID_STATE_MPIDI_IMPROBE);
+
+    if (transport == MPIDI_CH4R_NETMOD) {
+        int vni_idx = 0, cs_acq = 0;
+        MPID_THREAD_SAFE_BEGIN(VNI, MPIDI_CH4_Global.vni_locks[vni_idx], cs_acq);
+
+        /* Handoff branch: under the handoff model, this(main) thread sets the flag
+         * 'processed' to false and submits an improbe request to the handoff queue.
+         * It then waits until the progress thread processes the request and sets
+         * the flag 'processed' to true. */
+        if (!cs_acq) {
+            /* Submit improbe request */
+            OPA_int_t processed;
+            OPA_store_int(&processed, 0);
+            MPIDI_workq_pt2pt_enqueue(IMPROBE, NULL /*send_buf */ , NULL /*buf */ , 0 /* count */ ,
+                                      -1 /* datatype */ ,
+                                      source, tag, comm, context_offset, av, vni_idx,
+                                      status, NULL /**request*/ , flag,
+                                      message, &processed);
+            /* Busy loop to block until improbe req is completed by the progress thread */
+            while (!OPA_load_int(&processed));
+            /* FIXME: alternatively may use yield, e.g., MPL_thread_yield if problem arises when
+             * sharing hardware thread between the main/this thread and the progress thread */
+
+            mpi_errno = MPI_SUCCESS;
+        } else {        /* Non handoff branch */
+            mpi_errno =
+                MPIDI_NM_mpi_improbe(source, tag, comm, context_offset, av, flag, message, status);
+            MPID_THREAD_SAFE_END(VNI, MPIDI_CH4_Global.vni_locks[vni_idx]);
+        }
+    }
+    if (mpi_errno != MPI_SUCCESS) {
+        MPIR_ERR_POP(mpi_errno);
+    }
+  fn_exit:
+    MPIR_FUNC_VERBOSE_EXIT(MPID_STATE_MPIDI_IMPROBE);
+    return mpi_errno;
+  fn_fail:
+    goto fn_exit;
+}
 
 #undef FUNCNAME
 #define FUNCNAME MPID_Mprobe
@@ -133,10 +187,12 @@ MPL_STATIC_INLINE_PREFIX int MPID_Mprobe(int source,
     }
 
     av = MPIDIU_comm_rank_to_av(comm, source);
+    /* Keep re-submitting improbe query until a match is found */
     while (!flag) {
 #ifndef MPIDI_CH4_EXCLUSIVE_SHM
         mpi_errno =
-            MPIDI_NM_mpi_improbe(source, tag, comm, context_offset, av, &flag, message, status);
+            MPIDI_improbe(MPIDI_CH4R_NETMOD, source, tag, comm, context_offset, av, status, &flag,
+                          message);
 #else
         if (unlikely(source == MPI_ANY_SOURCE)) {
             mpi_errno =
@@ -145,8 +201,8 @@ MPL_STATIC_INLINE_PREFIX int MPID_Mprobe(int source,
                 MPIDI_CH4I_REQUEST(*message, is_local) = 1;
             } else {
                 mpi_errno =
-                    MPIDI_NM_mpi_improbe(source, tag, comm, context_offset, av, &flag, message,
-                                         status);
+                    MPIDI_improbe(MPIDI_CH4R_NETMOD, source, tag, comm, context_offset, av, status,
+                                  &flag, message);
                 if (flag)
                     MPIDI_CH4I_REQUEST(*message, is_local) = 0;
             }
@@ -157,7 +213,8 @@ MPL_STATIC_INLINE_PREFIX int MPID_Mprobe(int source,
                 MPIDI_CH4I_REQUEST(*message, is_local) = 1;
         } else {
             mpi_errno =
-                MPIDI_NM_mpi_improbe(source, tag, comm, context_offset, av, &flag, message, status);
+                MPIDI_improbe(MPIDI_CH4R_NETMOD, source, tag, comm, context_offset, av, status,
+                              &flag, message);
             if (flag)
                 MPIDI_CH4I_REQUEST(*message, is_local) = 0;
         }
@@ -197,9 +254,12 @@ MPL_STATIC_INLINE_PREFIX int MPID_Improbe(int source,
         goto fn_exit;
     }
 
+    *flag = 0;
     av = MPIDIU_comm_rank_to_av(comm, source);
 #ifndef MPIDI_CH4_EXCLUSIVE_SHM
-    mpi_errno = MPIDI_NM_mpi_improbe(source, tag, comm, context_offset, av, flag, message, status);
+    mpi_errno =
+        MPIDI_improbe(MPIDI_CH4R_NETMOD, source, tag, comm, context_offset, av, status, flag,
+                      message);
 #else
     if (unlikely(source == MPI_ANY_SOURCE)) {
         mpi_errno = MPIDI_SHM_mpi_improbe(source, tag, comm, context_offset, flag, message, status);
@@ -207,7 +267,8 @@ MPL_STATIC_INLINE_PREFIX int MPID_Improbe(int source,
             MPIDI_CH4I_REQUEST(*message, is_local) = 1;
         } else {
             mpi_errno =
-                MPIDI_NM_mpi_improbe(source, tag, comm, context_offset, av, flag, message, status);
+                MPIDI_improbe(MPIDI_CH4R_NETMOD, source, tag, comm, context_offset, av, status,
+                              flag, message);
             if (*flag) {
                 MPIDI_CH4I_REQUEST(*message, is_local) = 0;
             }
@@ -218,7 +279,8 @@ MPL_STATIC_INLINE_PREFIX int MPID_Improbe(int source,
             MPIDI_CH4I_REQUEST(*message, is_local) = 1;
     } else {
         mpi_errno =
-            MPIDI_NM_mpi_improbe(source, tag, comm, context_offset, av, flag, message, status);
+            MPIDI_improbe(MPIDI_CH4R_NETMOD, source, tag, comm, context_offset, av, status, flag,
+                          message);
         if (*flag)
             MPIDI_CH4I_REQUEST(*message, is_local) = 0;
     }
