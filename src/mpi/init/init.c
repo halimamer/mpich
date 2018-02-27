@@ -38,6 +38,20 @@ cvars:
         highly system dependent but may be substantial in some cases,
         hence this recommendation.
 
+    - name        : MPIR_CVAR_MAX_PROGRESS_THREADS
+      category    : THREADS
+      type        : int
+      default     : -1
+      class       : device
+      verbosity   : MPI_T_VERBOSITY_USER_BASIC
+      scope       : MPI_T_SCOPE_ALL_EQ
+      description : >-
+        If set to positive, this variable specifies the maximum number of
+        progress threads.
+        This variable is only effective when MPIR_CVAR_ASYNC_PROGRESS
+        is set to true. Otherwise this will be ignored.
+        Default value is -1, meaning the maximum number is given by a device.
+
     - name        : MPIR_CVAR_DEFAULT_THREAD_LEVEL
       category    : THREADS
       type        : string
