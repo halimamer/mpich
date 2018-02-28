@@ -19,6 +19,14 @@
 
 #define MPIDI_PROGRESS_ALL (MPIDI_PROGRESS_HOOKS|MPIDI_PROGRESS_NM|MPIDI_PROGRESS_SHM)
 
+static inline int MPIDI_have_progress_thread(void)
+{
+    if (MPIDI_CH4_MT_MODEL == MPIDI_CH4_MT_HANDOFF)
+        return OPA_load_int(&MPIDI_CH4_Global.n_active_progress_threads);
+    else
+        return 0;
+}
+
 /* Flags argument allows to control execution of different parts of progress function,
  * for aims of prioritization of different transports and reentrant-safety of progress call.
  *
@@ -32,7 +40,7 @@
 #define FCNAME MPL_QUOTE(FUNCNAME)
 MPL_STATIC_INLINE_PREFIX int MPIDI_Progress_test(int flags)
 {
-    int mpi_errno, made_progress, i;
+    int mpi_errno = MPI_SUCCESS, made_progress, i;
 
     MPIR_FUNC_VERBOSE_STATE_DECL(MPID_STATE_MPIDI_PROGRESS_TEST);
     MPIR_FUNC_VERBOSE_ENTER(MPID_STATE_MPIDI_PROGRESS_TEST);
@@ -54,6 +62,10 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_Progress_test(int flags)
         MPID_THREAD_CS_EXIT(VNI, MPIDI_CH4I_THREAD_PROGRESS_MUTEX);
         MPID_THREAD_CS_EXIT(POBJ, MPIDI_CH4I_THREAD_PROGRESS_MUTEX);
     }
+
+    if (MPIDI_have_progress_thread())
+        flags &= ~MPIDI_PROGRESS_NM;
+
     /* todo: progress unexp_list */
 
     if (flags & MPIDI_PROGRESS_NM) {
@@ -239,6 +251,40 @@ MPL_STATIC_INLINE_PREFIX int MPID_Progress_deactivate(int id)
     MPID_THREAD_CS_EXIT(POBJ, MPIDI_CH4I_THREAD_PROGRESS_HOOK_MUTEX);
     MPIR_FUNC_VERBOSE_EXIT(MPID_STATE_MPID_PROGRESS_DEACTIVATE);
     return mpi_errno;
+}
+
+#undef FUNCNAME
+#define FUNCNAME MPIDI_progress_thread_fn
+#undef FCNAME
+#define FCNAME MPL_QUOTE(FUNCNAME)
+MPL_STATIC_INLINE_PREFIX void MPIDI_progress_thread_fn(void *data)
+{
+    int i, vni_idx, n_vnis = *((int *) data);
+    const int *vnis = ((int *) data) + 1;
+    MPIR_FUNC_VERBOSE_STATE_DECL(MPID_STATE_MPIDI_PROGRESS_THREAD_FN);
+    MPIR_FUNC_VERBOSE_ENTER(MPID_STATE_MPIDI_PROGRESS_THREAD_FN);
+
+    /* Inform that I am spawned */
+    OPA_incr_int(&MPIDI_CH4_Global.n_active_progress_threads);
+
+    /* Wait until MPI_Init* is completed, because this thread is launched
+     * in MPID_Init, and between MPID_Init and the end of MPI_Init*
+     * there are several thread-related initializations
+     * (e.g. activating mutexes.) */
+    while (OPA_load_int(&MPIR_Process.mpich_state) < MPICH_MPI_STATE__POST_INIT);
+
+    do {
+        for (i = 0; i < n_vnis; i++) {
+            vni_idx = vnis[i];
+            MPIDI_workq_vni_progress(vni_idx);
+            MPIDI_NM_progress(vni_idx, 0);
+        }
+    } while (OPA_load_int(&MPIDI_CH4_Global.progress_thread_exit_signal) == 0);
+    OPA_decr_int(&MPIDI_CH4_Global.n_active_progress_threads);
+
+    MPL_free(data);
+
+    MPIR_FUNC_VERBOSE_EXIT(MPID_STATE_MPIDI_PROGRESS_THREAD_FN);
 }
 
 #endif /* CH4_PROGRESS_H_INCLUDED */
