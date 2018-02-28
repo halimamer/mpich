@@ -525,6 +525,32 @@ case $enable_ch4_pobj_workqueue in
         ;;
 esac
 
+AC_ARG_ENABLE(ch4-workq-type,
+    [--enable-ch4-workq-type=option
+       Select a work queue implementation for handoff/trylock
+         zm_msqueue - Use zm_msqueue, provided by izem
+         zm_glqueue - Use zm_glqueue, provided by izem
+         runtime    - Determine the model by a CVAR
+    ],,enable_ch4_workq_type=zm_msqueue)
+
+case $enable_ch4_workq_type in
+     zm_msqueue)
+         AC_DEFINE([MPIDI_CH4_USE_WORKQ_ZM_MSQUEUE], [1],
+            [Define and enable zm_msqueue])
+        ;;
+     zm_glqueue)
+         AC_DEFINE([MPIDI_CH4_USE_WORKQ_ZM_GLQUEUE], [1],
+            [Define to enable zm_glqueue])
+        ;;
+     runtime)
+         AC_DEFINE([MPIDI_CH4_USE_WORKQ_RUNTIME], [1],
+            [Define and to enable runtime selection of the workqueue type])
+        ;;
+     *)
+        AC_MSG_ERROR([Unsupported value for --enable-ch4-workq-type: ${enable_ch4_workq_type}])
+        ;;
+esac
+
 AC_CHECK_HEADERS(sys/mman.h sys/stat.h fcntl.h)
 AC_CHECK_FUNC(mmap, [], [AC_MSG_ERROR(mmap is required to build CH4)])
 

@@ -10,6 +10,99 @@
 
 #include "ch4i_workq_types.h"
 
+MPL_STATIC_INLINE_PREFIX void MPIDI_zm_msqueue_init(struct MPIDI_workq *q)
+{
+    zm_msqueue_init(&q->zm_msqueue);
+}
+
+MPL_STATIC_INLINE_PREFIX void MPIDI_zm_msqueue_enqueue(struct MPIDI_workq *q, void *p)
+{
+    zm_msqueue_enqueue(&q->zm_msqueue, p);
+}
+
+MPL_STATIC_INLINE_PREFIX int MPIDI_zm_msqueue_dequeue_bulk(struct MPIDI_workq *q, void **p, int n)
+{
+    zm_msqueue_dequeue(&q->zm_msqueue, p);
+    if (*p == NULL)
+        return 0;
+    else
+        return 1;
+}
+
+MPL_STATIC_INLINE_PREFIX void MPIDI_zm_glqueue_init(struct MPIDI_workq *q)
+{
+    zm_glqueue_init(&q->zm_glqueue);
+}
+
+MPL_STATIC_INLINE_PREFIX void MPIDI_zm_glqueue_enqueue(struct MPIDI_workq *q, void *p)
+{
+    zm_glqueue_enqueue(&q->zm_glqueue, p);
+}
+
+MPL_STATIC_INLINE_PREFIX int MPIDI_zm_glqueue_dequeue_bulk(struct MPIDI_workq *q, void **p, int n)
+{
+    zm_glqueue_dequeue(&q->zm_glqueue, p);
+    if (*p == NULL)
+        return 0;
+    else
+        return 1;
+}
+
+#ifdef MPIDI_CH4_USE_WORKQ_RUNTIME
+MPL_STATIC_INLINE_PREFIX int MPIDI_workq_init(MPIDI_workq_t * q)
+{
+    memset(q, 0, sizeof(*q));
+
+    switch (MPIDI_CH4_WORKQ_TYPE) {
+        case MPIDI_CH4_WORKQ_ZM_MSQUEUE:
+            q->enqueue = MPIDI_zm_msqueue_enqueue;
+            q->dequeue_bulk = MPIDI_zm_msqueue_dequeue_bulk;
+
+            return zm_msqueue_init(&q->zm_msqueue);
+
+        case MPIDI_CH4_WORKQ_ZM_GLQUEUE:
+            q->enqueue = MPIDI_zm_glqueue_enqueue;
+            q->dequeue_bulk = MPIDI_zm_glqueue_dequeue_bulk;
+
+            return zm_glqueue_init(&q->zm_glqueue);
+
+        default:
+            MPIR_Assert(0);
+            return -1;
+    }
+}
+
+MPL_STATIC_INLINE_PREFIX void MPIDI_workq_enqueue(struct MPIDI_workq *q, void *p)
+{
+    q->enqueue(q, p);
+}
+
+MPL_STATIC_INLINE_PREFIX int MPIDI_workq_dequeue_bulk(struct MPIDI_workq *q, void **pp, int n)
+{
+    return q->dequeue_bulk(q, pp, n);
+}
+
+MPL_STATIC_INLINE_PREFIX void MPIDI_workq_finalize(struct MPIDI_workq *q)
+{
+    if (q->finalize)
+        q->finalize(q);
+}
+#else /* MPIDI_CH4_USE_WORKQ_RUNTIME */
+#if MPIDI_CH4_WORKQ_TYPE == MPIDI_CH4_WORKQ_ZM_MSQUEUE
+#define MPIDI_workq_init         MPIDI_zm_msqueue_init
+#define MPIDI_workq_enqueue      MPIDI_zm_msqueue_enqueue
+#define MPIDI_workq_dequeue_bulk MPIDI_zm_msqueue_dequeue_bulk
+#define MPIDI_workq_finalize(q)  do {} while (0)
+#elif MPIDI_CH4_WORKQ_TYPE == MPIDI_CH4_WORKQ_ZM_GLQUEUE
+#define MPIDI_workq_init         MPIDI_zm_glqueue_init
+#define MPIDI_workq_enqueue      MPIDI_zm_glqueue_enqueue
+#define MPIDI_workq_dequeue_bulk MPIDI_zm_glqueue_dequeue_bulk
+#define MPIDI_workq_finalize(q)  do {} while (0)
+#else
+#error "MPIDI_CH4_WORKQ_TYPE is unknown"
+#endif
+#endif /* MPIDI_CH4_USE_WORKQ_RUNTIME */
+
 #define MPIDI_REQUEST_KIND_SEND MPIR_REQUEST_KIND__SEND
 #define MPIDI_REQUEST_KIND_ISEND MPIR_REQUEST_KIND__SEND
 #define MPIDI_REQUEST_KIND_RECV MPIR_REQUEST_KIND__RECV
@@ -248,28 +341,36 @@ static inline int MPIDI_workq_dispatch(MPIDI_workq_elemt_t * workq_elemt)
     return mpi_errno;
 }
 
+#define MPIDI_WORKQ_DEQUEUE_SIZE 128
+
 static inline int MPIDI_workq_vni_progress_pobj(int vni_idx)
 {
     int mpi_errno = MPI_SUCCESS;
-    MPIDI_workq_elemt_t *workq_elemt = NULL;
+    MPIDI_workq_elemt_t *workq_elemts[MPIDI_WORKQ_DEQUEUE_SIZE];
     MPIDI_workq_list_t *cur_workq;
 
     MPIR_Assert(MPIDI_CH4_ENABLE_POBJ_WORKQUEUES);
 
     MPIDI_WORKQ_PROGRESS_START;
     DL_FOREACH(MPIDI_CH4_Global.workqueues.pobj[vni_idx], cur_workq) {
-        MPIDI_workq_dequeue(&cur_workq->pend_ops, (void **) &workq_elemt);
-        while (workq_elemt != NULL) {
-            MPIDI_WORKQ_ISSUE_START;
-            mpi_errno = MPIDI_workq_dispatch(workq_elemt);
-            if (mpi_errno != MPI_SUCCESS) {
-                MPL_free(workq_elemt);
-                goto fn_fail;
+        int n;
+        do {
+            int i;
+            n = MPIDI_workq_dequeue_bulk(&cur_workq->pend_ops,
+                                         (void **) workq_elemts, MPIDI_WORKQ_DEQUEUE_SIZE);
+            for (i = 0; i < n; i++) {
+                MPIDI_WORKQ_ISSUE_START;
+                mpi_errno = MPIDI_workq_dispatch(workq_elemts[i]);
+                if (mpi_errno != MPI_SUCCESS) {
+                    int j;
+                    for (j = i; j < n; j++)
+                        MPL_free(workq_elemts[j]);
+                    goto fn_fail;
+                }
+                MPIDI_WORKQ_ISSUE_STOP;
+                MPL_free(workq_elemts[i]);
             }
-            MPIDI_WORKQ_ISSUE_STOP;
-            MPL_free(workq_elemt);
-            MPIDI_workq_dequeue(&cur_workq->pend_ops, (void **) &workq_elemt);
-        }
+        } while (n > 0);
     }
     MPIDI_WORKQ_PROGRESS_STOP;
   fn_fail:
@@ -279,24 +380,30 @@ static inline int MPIDI_workq_vni_progress_pobj(int vni_idx)
 static inline int MPIDI_workq_vni_progress_pvni(int vni_idx)
 {
     int mpi_errno = MPI_SUCCESS;
-    MPIDI_workq_elemt_t *workq_elemt = NULL;
+    MPIDI_workq_elemt_t *workq_elemts[MPIDI_WORKQ_DEQUEUE_SIZE];
+    int n;
 
     MPIR_Assert(!MPIDI_CH4_ENABLE_POBJ_WORKQUEUES);
 
     MPIDI_WORKQ_PROGRESS_START;
 
-    MPIDI_workq_dequeue(&MPIDI_CH4_Global.workqueues.pvni[vni_idx], (void **) &workq_elemt);
-    while (workq_elemt != NULL) {
-        MPIDI_WORKQ_ISSUE_START;
-        mpi_errno = MPIDI_workq_dispatch(workq_elemt);
-        if (mpi_errno != MPI_SUCCESS) {
-            MPL_free(workq_elemt);
-            goto fn_fail;
+    do {
+        int i;
+        n = MPIDI_workq_dequeue_bulk(&MPIDI_CH4_Global.workqueues.pvni[vni_idx],
+                                     (void **) workq_elemts, MPIDI_WORKQ_DEQUEUE_SIZE);
+        for (i = 0; i < n; i++) {
+            MPIDI_WORKQ_ISSUE_START;
+            mpi_errno = MPIDI_workq_dispatch(workq_elemts[i]);
+            if (mpi_errno != MPI_SUCCESS) {
+                int j;
+                for (j = i; j < n; j++)
+                    MPL_free(workq_elemts[j]);
+                goto fn_fail;
+            }
+            MPIDI_WORKQ_ISSUE_STOP;
+            MPL_free(workq_elemts[i]);
         }
-        MPIDI_WORKQ_ISSUE_STOP;
-        MPL_free(workq_elemt);
-        MPIDI_workq_dequeue(&MPIDI_CH4_Global.workqueues.pvni[vni_idx], (void **) &workq_elemt);
-    }
+    } while (n > 0);
     MPIDI_WORKQ_PROGRESS_STOP;
   fn_fail:
     return mpi_errno;

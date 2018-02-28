@@ -96,6 +96,16 @@ cvars:
       description : >-
         If set to positive, this specifies the maximum number of progress threads
 
+    - name        : MPIR_CVAR_CH4_WORKQ_TYPE
+      category    : CH4
+      type        : string
+      default     : ""
+      class       : device
+      verbosity   : MPI_T_VERBOSITY_USER_BASIC
+      scope       : MPI_T_SCOPE_ALL_EQ
+      description : >-
+        Specifies the work queue type
+
 === END_MPI_T_CVAR_INFO_BLOCK ===
 */
 
@@ -161,12 +171,22 @@ MPL_STATIC_INLINE_PREFIX const char *MPIDI_get_mt_model_name(int mt)
     return MPIDI_CH4_mt_model_names[mt];
 }
 
+MPL_STATIC_INLINE_PREFIX const char *MPIDI_get_workq_type_name(int t)
+{
+    if (t < 0 || t >= MPIDI_CH4_NUM_WORKQ_TYPES)
+        return "(invalid)";
+
+    return MPIDI_workq_types[t];
+}
+
 MPL_STATIC_INLINE_PREFIX void MPIDI_print_runtime_configurations(void)
 {
     printf("==== Runtime configurations ====\n");
     printf("MPIDI_CH4_MT_MODEL: %d (%s)\n",
            MPIDI_CH4_MT_MODEL, MPIDI_get_mt_model_name(MPIDI_CH4_MT_MODEL));
     printf("MPIDI_CH4_ENABLE_POBJ_WORKQUEUES: %d\n", MPIDI_CH4_ENABLE_POBJ_WORKQUEUES);
+    printf("MPIDI_CH4_WORKQ_TYPE: %d (%s)\n",
+           MPIDI_CH4_WORKQ_TYPE, MPIDI_get_workq_type_name(MPIDI_CH4_WORKQ_TYPE));
     printf("================================\n");
 }
 
@@ -184,10 +204,25 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_parse_mt_model(const char *name)
     return -1;
 }
 
+MPL_STATIC_INLINE_PREFIX int MPIDI_parse_workq_type(const char *name)
+{
+    int i;
+
+    if (!strcmp(name, ""))
+        return 0;
+
+    for (i = 0; i < MPIDI_CH4_NUM_WORKQ_TYPES; i++) {
+        if (!strcasecmp(name, MPIDI_workq_types[i]))
+            return i;
+    }
+
+    return -1;
+}
+
 MPL_STATIC_INLINE_PREFIX int MPIDI_set_runtime_configurations(void)
 {
     int mpi_errno = MPI_SUCCESS;
-    int mt;
+    int mt, workq;
 
     mt = MPIDI_parse_mt_model(MPIR_CVAR_CH4_MT_MODEL);
     if (mt < 0)
@@ -197,6 +232,13 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_set_runtime_configurations(void)
     MPIDI_CH4_Global.settings.mt_model = mt;
 
     MPIDI_CH4_Global.settings.enable_pobj_workqueues = MPIR_CVAR_CH4_ENABLE_POBJ_WORKQUEUES ? 1 : 0;
+
+    workq = MPIDI_parse_workq_type(MPIR_CVAR_CH4_WORKQ_TYPE);
+    if (workq < 0)
+        MPIR_ERR_SETANDJUMP1(mpi_errno, MPI_ERR_OTHER,
+                             "**ch4|invalid_workq_name", "**ch4|invalid_workq_name %s",
+                             MPIR_CVAR_CH4_WORKQ_TYPE);
+    MPIDI_CH4_Global.settings.workq_type = workq;
 
   fn_fail:
     return mpi_errno;
@@ -568,6 +610,7 @@ MPL_STATIC_INLINE_PREFIX int MPID_InitCompleted(void)
 MPL_STATIC_INLINE_PREFIX int MPID_Finalize(void)
 {
     int mpi_errno, thr_err;
+    int i;
     MPIR_FUNC_VERBOSE_STATE_DECL(MPID_STATE_MPID_FINALIZE);
     MPIR_FUNC_VERBOSE_ENTER(MPID_STATE_MPID_FINALIZE);
 
@@ -580,7 +623,6 @@ MPL_STATIC_INLINE_PREFIX int MPID_Finalize(void)
         MPIR_ERR_POP(mpi_errno);
 #endif
 
-    int i;
     int max_n_avts;
     max_n_avts = MPIDIU_get_max_n_avts();
     for (i = 0; i < max_n_avts; i++) {
@@ -594,9 +636,11 @@ MPL_STATIC_INLINE_PREFIX int MPID_Finalize(void)
 
     if (MPIDI_CH4_ENABLE_POBJ_WORKQUEUES)
         MPL_free(MPIDI_CH4_Global.workqueues.pobj);
-    else
+    else {
+        for (i = 0; i < MPIDI_CH4_Global.n_netmod_vnis; i++)
+            MPIDI_workq_finalize(&MPIDI_CH4_Global.workqueues.pvni[i]);
         MPL_free(MPIDI_CH4_Global.workqueues.pvni);
-
+    }
     for (i = 0; i < MPIDI_CH4_Global.n_netmod_vnis; i++) {
         MPID_Thread_mutex_destroy(&MPIDI_CH4_Global.vni_locks[i], &thr_err);
     }

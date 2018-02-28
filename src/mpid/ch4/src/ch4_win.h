@@ -40,6 +40,7 @@ static inline void MPIDI_win_work_queues_free(MPIR_Win * win)
         MPID_THREAD_CS_ENTER(VNI, MPIDI_CH4_Global.vni_locks[i]);
         DL_DELETE(MPIDI_CH4_Global.workqueues.pobj[i], &win->dev.work_queues[i]);
         MPID_THREAD_CS_EXIT(VNI, MPIDI_CH4_Global.vni_locks[i]);
+        MPIDI_workq_finalize(&win->dev.work_queues[i].pend_ops);
     }
 
     MPL_free(win->dev.work_queues);
