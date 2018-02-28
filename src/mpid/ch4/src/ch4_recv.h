@@ -38,7 +38,7 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_recv(int transport,
             *(request) = MPIR_Request_create(MPIDI_REQUEST_KIND_RECV);
             MPIDI_workq_pt2pt_enqueue(RECV, NULL /*send_buf */ , buf, count, datatype,
                                       rank, tag, comm, context_offset, av, vni_idx,
-                                      status, *request);
+                                      status, *request, NULL /*flag */ , NULL /*processed */);
             (mpi_errno) = MPI_SUCCESS;
         } else {
             mpi_errno =
@@ -83,7 +83,8 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_irecv(int transport,
             *(request) = MPIR_Request_create(MPIDI_REQUEST_KIND_RECV);
             MPIDI_workq_pt2pt_enqueue(RECV, NULL /*send_buf */ , buf, count, datatype,
                                       rank, tag, comm, context_offset, av, vni_idx,
-                                      NULL /*status */ , *request);
+                                      NULL /*status */ , *request, NULL /*flag */ ,
+                                      NULL /*processed */);
             (mpi_errno) = MPI_SUCCESS;
         } else {
             mpi_errno =

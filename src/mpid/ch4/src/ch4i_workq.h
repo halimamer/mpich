@@ -61,13 +61,21 @@
         (elem)->win_ptr,                                        \
         (elem)->rma_addr
 
+#define MPIDI_EXTRACT_PROBE_ARGS(elem)                            \
+        (elem)->rank,                                             \
+        (elem)->tag,                                              \
+        (elem)->comm_ptr,                                         \
+        (elem)->context_offset,                                   \
+        (elem)->pt2pt_addr,                                       \
+        (elem)->flag,                                             \
+        (elem)->status
+
 #define MPIDI_INVOKE_DEFERRED_SEND(elem)    MPIDI_NM_mpi_send(MPIDI_EXTRACT_SEND_ARGS(elem))
 #define MPIDI_INVOKE_DEFERRED_ISEND(elem)   MPIDI_NM_mpi_isend(MPIDI_EXTRACT_SEND_ARGS(elem))
 #define MPIDI_INVOKE_DEFERRED_SSEND(elem)   MPIDI_NM_mpi_ssend(MPIDI_EXTRACT_SEND_ARGS(elem))
 #define MPIDI_INVOKE_DEFERRED_RECV(elem)    MPIDI_NM_mpi_recv(MPIDI_EXTRACT_RECV_ARGS(elem))
 #define MPIDI_INVOKE_DEFERRED_IRECV(elem)   MPIDI_NM_mpi_irecv(MPIDI_EXTRACT_IRECV_ARGS(elem))
 #define MPIDI_INVOKE_DEFERRED_PUT(elem)     MPIDI_NM_mpi_put(MPIDI_EXTRACT_PUTGET_ARGS(elem))
-
 
 
 /* For profiling */
@@ -127,7 +135,9 @@ static inline void MPIDI_workq_pt2pt_enqueue_body(MPIDI_workq_op_t op,
                                                   int context_offset,
                                                   MPIDI_av_entry_t * addr,
                                                   int vni_idx,
-                                                  MPI_Status * status, MPIR_Request * request)
+                                                  MPI_Status * status,
+                                                  MPIR_Request * request,
+                                                  int *flag, OPA_int_t * processed)
 {
     MPIDI_workq_elemt_t *pt2pt_elemt = NULL;
     pt2pt_elemt = MPL_malloc(sizeof(*pt2pt_elemt), MPL_MEM_BUFFER);
@@ -143,6 +153,8 @@ static inline void MPIDI_workq_pt2pt_enqueue_body(MPIDI_workq_op_t op,
     pt2pt_elemt->pt2pt_addr = addr;
     pt2pt_elemt->status = status;
     pt2pt_elemt->request = request;
+    pt2pt_elemt->flag = flag;
+    pt2pt_elemt->processed = processed;
 
     if (MPIDI_CH4_ENABLE_POBJ_WORKQUEUES)
         MPIDI_workq_enqueue(&comm_ptr->dev.work_queues[vni_idx].pend_ops, pt2pt_elemt);
@@ -205,6 +217,11 @@ static inline int MPIDI_workq_dispatch(MPIDI_workq_elemt_t * workq_elemt)
             break;
         case PUT:
             MPIDI_NM_mpi_put(MPIDI_EXTRACT_PUTGET_ARGS(workq_elemt));
+            break;
+        case IPROBE:
+            MPIDI_NM_mpi_iprobe(MPIDI_EXTRACT_PROBE_ARGS(workq_elemt));
+            OPA_store_int(workq_elemt->processed, 1);   /* set to true to let the main thread
+                                                         * learn that the item is processed */
             break;
         default:
             mpi_errno = MPI_ERR_OTHER;
@@ -280,12 +297,14 @@ static inline void MPIDI_workq_pt2pt_enqueue(MPIDI_workq_op_t op,
                                              int context_offset,
                                              MPIDI_av_entry_t * addr,
                                              int vni_idx,
-                                             MPI_Status * status, MPIR_Request * request)
+                                             MPI_Status * status,
+                                             MPIR_Request * request,
+                                             int *flag, OPA_int_t * processed)
 {
     MPIDI_WORKQ_PT2PT_ENQUEUE_START;
     MPIDI_workq_pt2pt_enqueue_body(op, send_buf, recv_buf, count, datatype,
                                    rank, tag, comm_ptr, context_offset, addr, vni_idx, status,
-                                   request);
+                                   request, flag, processed);
     MPIDI_WORKQ_PT2PT_ENQUEUE_STOP;
 }
 

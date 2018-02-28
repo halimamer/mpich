@@ -85,6 +85,9 @@ struct MPIDI_workq_elemt {
             MPIDI_av_entry_t *pt2pt_addr;
             MPI_Status *status;
             MPIR_Request *request;
+            int *flag;      /* needed for the probe routines */
+            OPA_int_t *processed;   /* set to true by the progress thread when
+                                     * this work item is done */
         };
         /* RMA */
         struct {
