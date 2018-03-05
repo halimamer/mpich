@@ -1,7 +1,6 @@
 [submodule "src/izem"]
 	path = src/izem
-        url = https://github.com/hajimefu/izem
-        branch = no-malloc_h
+	url = https://github.com/pmodels/izem
 [submodule "src/mpid/ch4/netmod/ofi/libfabric"]
 	path = src/mpid/ch4/netmod/ofi/libfabric
 	url = https://github.com/ofiwg/libfabric
