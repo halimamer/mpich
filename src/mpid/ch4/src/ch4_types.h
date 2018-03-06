@@ -15,7 +15,6 @@
 #include <stdio.h>
 #include "mpir_cvars.h"
 #include "pmi.h"
-#include "ch4i_workq_types.h"
 
 /* Macros and inlines */
 /* match/ignore bit manipulation
@@ -270,8 +269,10 @@ typedef struct MPIDI_CH4U_map_t {
 
 typedef struct {
     unsigned mt_model;
+#if defined(MPIDI_CH4_USE_WORK_QUEUES)
     unsigned enable_pobj_workqueues:1;
     int workq_type;
+#endif
 } MPIDI_CH4_configurations_t;
 
 typedef struct MPIDI_CH4_Global_t {
@@ -303,6 +304,7 @@ typedef struct MPIDI_CH4_Global_t {
     int n_netmod_vnis;
     MPID_Thread_mutex_t *vni_locks;
 
+#if defined(MPIDI_CH4_USE_WORK_QUEUES)
     /* Work queues */
     union {
         /* Per-object queue, when MPIDI_CH4_ENABLE_POBJ_WORKQUEUES */
@@ -310,6 +312,7 @@ typedef struct MPIDI_CH4_Global_t {
         /* Per-VNI queue, when !MPIDI_CH4_ENABLE_POBJ_WORKQUEUES */
         MPIDI_workq_t *pvni;
     } workqueues;
+#endif
 
     int progress_hook_id;
 

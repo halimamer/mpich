@@ -10,6 +10,14 @@
 
 #include "ch4i_workq_types.h"
 
+#define MPIDI_REQUEST_KIND_SEND MPIR_REQUEST_KIND__SEND
+#define MPIDI_REQUEST_KIND_ISEND MPIR_REQUEST_KIND__SEND
+#define MPIDI_REQUEST_KIND_RECV MPIR_REQUEST_KIND__RECV
+#define MPIDI_REQUEST_KIND_IRECV MPIR_REQUEST_KIND__RECV
+#define MPIDI_REQUEST_KIND_PUT MPIR_REQUEST_KIND__RMA
+
+#if defined(MPIDI_CH4_USE_WORK_QUEUES)
+
 MPL_STATIC_INLINE_PREFIX void MPIDI_zm_msqueue_init(struct MPIDI_workq *q)
 {
     zm_msqueue_init(&q->zm_msqueue);
@@ -102,12 +110,6 @@ MPL_STATIC_INLINE_PREFIX void MPIDI_workq_finalize(struct MPIDI_workq *q)
 #error "MPIDI_CH4_WORKQ_TYPE is unknown"
 #endif
 #endif /* MPIDI_CH4_USE_WORKQ_RUNTIME */
-
-#define MPIDI_REQUEST_KIND_SEND MPIR_REQUEST_KIND__SEND
-#define MPIDI_REQUEST_KIND_ISEND MPIR_REQUEST_KIND__SEND
-#define MPIDI_REQUEST_KIND_RECV MPIR_REQUEST_KIND__RECV
-#define MPIDI_REQUEST_KIND_IRECV MPIR_REQUEST_KIND__RECV
-#define MPIDI_REQUEST_KIND_PUT MPIR_REQUEST_KIND__RMA
 
 #define MPIDI_EXTRACT_SEND_ARGS(elem)                             \
     (elem)->send_buf,                                             \
@@ -477,5 +479,16 @@ static inline int MPIDI_workq_global_progress(int *made_progress)
     }
     return mpi_errno;
 }
+
+#else
+
+#define MPIDI_workq_vni_progress_pobj
+#define MPIDI_workq_vni_progress_pvni
+#define MPIDI_workq_pt2pt_enqueue
+#define MPIDI_workq_rma_enqueue
+#define MPIDI_workq_vni_progress
+#define MPIDI_workq_global_progress
+
+#endif /* MPIDI_CH4_USE_WORK_QUEUES */
 
 #endif /* CH4I_WORKQ_H_INCLUDED */

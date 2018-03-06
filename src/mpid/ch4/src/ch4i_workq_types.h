@@ -17,6 +17,13 @@ enum {
     MPIDI_CH4_NUM_MT_MODELS,
 };
 
+/* For now any thread safety model that is not "direct" requires
+   work queues. These queues might be used for different reasons,
+   thus a new macro to capture that. */
+#if !defined(MPIDI_CH4_USE_MT_DIRECT)
+#define MPIDI_CH4_USE_WORK_QUEUES
+#endif
+
 /*
   Work queue implementations
   We can't use enum here because we want to use these values in #if macros
@@ -30,6 +37,13 @@ static const char *MPIDI_CH4_mt_model_names[MPIDI_CH4_NUM_MT_MODELS] = {
     "handoff",
     "trylock",
 };
+
+enum MPIDI_workq_op { SEND, ISEND, SSEND, ISSEND, RSEND, IRSEND, RECV, IRECV, PUT, IPROBE,
+     IMPROBE
+};
+
+
+#if defined(MPIDI_CH4_USE_WORK_QUEUES)
 
 #include <queue/zm_msqueue.h>
 #include <queue/zm_glqueue.h>
@@ -58,10 +72,6 @@ extern "C" {
     static const char *MPIDI_workq_types[] = {
         "zm_msqueue",
         "zm_glqueue",
-    };
-
-    enum MPIDI_workq_op { SEND, ISEND, SSEND, ISSEND, RSEND, IRSEND, RECV, IRECV, PUT, IPROBE,
-         IMPROBE
     };
 
     typedef enum MPIDI_workq_op MPIDI_workq_op_t;
@@ -120,5 +130,7 @@ extern "C" {
 #ifdef __cplusplus
 }       /* extern "C" */
 #endif
+
+#endif /* MPIDI_CH4_USE_WORK_QUEUES */
 
 #endif /* CH4I_WORKQ_TYPES_H_INCLUDED */

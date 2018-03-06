@@ -13,6 +13,7 @@
 
 #include "ch4_impl.h"
 
+#if defined(MPIDI_CH4_USE_WORK_QUEUES)
 static inline void MPIDI_win_work_queues_init(MPIR_Win * win)
 {
     win->dev.nqueues = 1;
@@ -45,6 +46,12 @@ static inline void MPIDI_win_work_queues_free(MPIR_Win * win)
 
     MPL_free(win->dev.work_queues);
 }
+#else
+
+#define MPIDI_win_work_queues_init
+#define MPIDI_win_work_queues_free
+
+#endif
 
 #undef FUNCNAME
 #define FUNCNAME MPID_Win_set_info

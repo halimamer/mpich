@@ -1132,6 +1132,7 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_check_disjoint_lupids(int lupids1[], int n1,
     goto fn_exit;
 }
 
+#if defined(MPIDI_CH4_USE_WORK_QUEUES)
 MPL_STATIC_INLINE_PREFIX void MPIDI_comm_work_queues_init(MPIR_Comm * comm)
 {
     int i;
@@ -1165,5 +1166,11 @@ MPL_STATIC_INLINE_PREFIX void MPIDI_comm_work_queues_free(MPIR_Comm * comm)
     }
     MPL_free(comm->dev.work_queues);
 }
+#else
+
+#define MPIDI_comm_work_queues_init
+#define MPIDI_comm_work_queues_free
+
+#endif
 
 #endif /* CH4I_COMM_H_INCLUDED */
