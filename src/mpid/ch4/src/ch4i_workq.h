@@ -245,8 +245,7 @@ static inline void MPIDI_workq_pt2pt_enqueue_body(MPIDI_workq_op_t op,
                                                   int *flag,
                                                   MPIR_Request ** message, OPA_int_t * processed)
 {
-    MPIDI_workq_elemt_t *pt2pt_elemt = NULL;
-    pt2pt_elemt = MPL_malloc(sizeof(*pt2pt_elemt), MPL_MEM_BUFFER);
+    MPIDI_workq_elemt_t *pt2pt_elemt = &request->dev.ch4.command;
     pt2pt_elemt->op = op;
     pt2pt_elemt->send_buf = send_buf;
     pt2pt_elemt->recv_buf = recv_buf;
