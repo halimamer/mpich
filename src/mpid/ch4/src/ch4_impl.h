@@ -455,6 +455,7 @@ static inline int MPIDI_CH4I_valid_group_rank(MPIR_Comm * comm, int rank, MPIR_G
     do {                                                        \
         mpi_errno = MPID_Progress_test();                       \
         if (mpi_errno != MPI_SUCCESS) MPIR_ERR_POP(mpi_errno);  \
+        MPID_THREAD_CS_YIELD(GLOBAL, MPIR_THREAD_GLOBAL_ALLFUNC_MUTEX); \
     } while (0)
 
 #define MPIDI_CH4R_PROGRESS_WHILE(cond)         \
