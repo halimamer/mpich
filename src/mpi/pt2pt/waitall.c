@@ -63,46 +63,6 @@ static inline int request_complete_fastpath(MPI_Request *request, MPIR_Request *
     return mpi_errno;
 }
 
-#ifdef MPICH_THREAD_USE_MDTA
-
-MPL_STATIC_INLINE_PREFIX int MPID_Waitall(int count, MPIR_Request * request_ptrs[],
-                                          MPI_Status array_of_statuses[])
-{
-    int mpi_errno = MPI_SUCCESS;
-    int i;
-    MPIR_Thread_sync_t *sync = NULL;
-
-
-    MPIR_Thread_sync_alloc(&sync, count);
-
-    /* Fix up number of pending requests and attach the sync. */
-    for (i = 0; i < count; i++) {
-        if (request_ptrs[i] == NULL || MPIR_Request_is_complete(request_ptrs[i])) {
-            MPIR_Thread_sync_signal(sync, 0);
-        } else {
-            MPIR_Request_attach_sync(request_ptrs[i], sync);
-        }
-    }
-
-    /* Wait on the synchronization object. */
-    MPIR_Thread_sync_wait(sync);
-
-    MPIR_Thread_sync_free(sync);
-    if (mpi_errno)
-        MPIR_ERR_POP(mpi_errno);
-
-  fn_exit:
-    return mpi_errno;
-  fn_fail:
-    goto fn_exit;
-}
-
-#else
-
-#define MPID_Waitall(count, request_ptrs, array_of_statuses)
-
-#endif
-
 #undef FUNCNAME
 #define FUNCNAME MPIR_Waitall_impl
 #undef FCNAME
@@ -198,7 +158,7 @@ int MPIR_Waitall_impl(int count, MPI_Request array_of_requests[],
      * Possible variation: permit request_ptrs[i]==NULL at the cost of an
      * additional branch inside the for-loop below. */
     if (optimize) {
-        MPID_Waitall(count, request_ptrs, array_of_statuses);
+        MPID_Waitall(count, request_ptrs);
         MPID_Progress_start(&progress_state);
         for (i = 0; i < count; ++i) {
             while (!MPIR_Request_is_complete(request_ptrs[i])) {
@@ -224,6 +184,7 @@ int MPIR_Waitall_impl(int count, MPI_Request array_of_requests[],
         }
 
         MPID_Progress_end(&progress_state);
+        MPID_Wait_done();
 
         goto fn_exit;
     }

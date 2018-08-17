@@ -147,6 +147,7 @@ int MPI_Recv(void *buf, int count, MPI_Datatype datatype, int source, int tag,
        complete */
     if (!MPIR_Request_is_complete(request_ptr))
     {
+        MPID_Wait(request_ptr);
 	MPID_Progress_state progress_state;
 	    
 	MPID_Progress_start(&progress_state);
@@ -177,6 +178,7 @@ int MPI_Recv(void *buf, int count, MPI_Datatype datatype, int source, int tag,
             }
 	}
 	MPID_Progress_end(&progress_state);
+        MPID_Wait_done();
     }
 
     mpi_errno = request_ptr->status.MPI_ERROR;

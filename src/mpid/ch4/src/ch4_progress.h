@@ -236,8 +236,7 @@ MPL_STATIC_INLINE_PREFIX int MPID_Progress_deactivate(int id)
 
 #ifdef MPICH_THREAD_USE_MDTA
 
-MPL_STATIC_INLINE_PREFIX int MPID_Waitall(int count, MPIR_Request * request_ptrs[],
-                                          MPI_Status array_of_statuses[])
+MPL_STATIC_INLINE_PREFIX int MPID_Waitall(int count, MPIR_Request * request_ptrs[])
 {
     int mpi_errno = MPI_SUCCESS;
     int i;
@@ -258,6 +257,48 @@ MPL_STATIC_INLINE_PREFIX int MPID_Waitall(int count, MPIR_Request * request_ptrs
     /* Wait on the synchronization object. */
     MPIR_Thread_sync_wait(sync);
 
+    if (mpi_errno)
+        MPIR_ERR_POP(mpi_errno);
+
+  fn_exit:
+    return mpi_errno;
+  fn_fail:
+    goto fn_exit;
+}
+
+MPL_STATIC_INLINE_PREFIX int MPID_Wait(MPIR_Request * request_ptr)
+{
+    int mpi_errno = MPI_SUCCESS;
+    MPIR_Thread_sync_t *sync = NULL;
+
+
+    MPIR_Thread_sync_alloc(&sync, 1);
+
+    if (request_ptr == NULL || MPIR_Request_is_complete(request_ptr)) {
+        MPIR_Thread_sync_signal(sync, 0);
+    } else {
+        MPIR_Request_attach_sync(request_ptr, sync);
+    }
+
+    /* Wait on the synchronization object. */
+    MPIR_Thread_sync_wait(sync);
+
+    if (mpi_errno)
+        MPIR_ERR_POP(mpi_errno);
+
+  fn_exit:
+    return mpi_errno;
+  fn_fail:
+    goto fn_exit;
+}
+
+MPL_STATIC_INLINE_PREFIX int MPID_Wait_done()
+{
+    int mpi_errno = MPI_SUCCESS;
+    MPIR_Thread_sync_t *sync = NULL;
+
+    MPIR_Thread_sync_get(&sync);
+
     MPIR_Thread_sync_free(sync);
     if (mpi_errno)
         MPIR_ERR_POP(mpi_errno);
@@ -270,7 +311,9 @@ MPL_STATIC_INLINE_PREFIX int MPID_Waitall(int count, MPIR_Request * request_ptrs
 
 #else
 
-#define MPID_Waitall(count, request_ptrs, array_of_statuses)
+#define MPID_Waitall(count, request_ptrs)
+#define MPID_Wait(request_ptr)
+#define MPID_Wait_done()
 
 #endif
 

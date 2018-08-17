@@ -45,6 +45,7 @@ int MPIR_Wait_impl(MPI_Request *request, MPI_Status *status)
 
     if (!MPIR_Request_is_complete(request_ptr))
     {
+        MPID_Wait(request_ptr);
 	MPID_Progress_state progress_state;
 
         /* If this is an anysource request including a communicator with
@@ -94,6 +95,7 @@ int MPIR_Wait_impl(MPI_Request *request, MPI_Status *status)
             }
 	}
 	MPID_Progress_end(&progress_state);
+        MPID_Wait_done();
     }
 
     mpi_errno = MPIR_Request_complete(request, request_ptr, status, &active_flag);
