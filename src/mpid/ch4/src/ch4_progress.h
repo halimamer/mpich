@@ -234,4 +234,45 @@ MPL_STATIC_INLINE_PREFIX int MPID_Progress_deactivate(int id)
     return mpi_errno;
 }
 
+#ifdef MPICH_THREAD_USE_MDTA
+
+MPL_STATIC_INLINE_PREFIX int MPID_Waitall(int count, MPIR_Request * request_ptrs[],
+                                          MPI_Status array_of_statuses[])
+{
+    int mpi_errno = MPI_SUCCESS;
+    int i;
+    MPIR_Thread_sync_t *sync = NULL;
+
+
+    MPIR_Thread_sync_alloc(&sync, count);
+
+    /* Fix up number of pending requests and attach the sync. */
+    for (i = 0; i < count; i++) {
+        if (request_ptrs[i] == NULL || MPIR_Request_is_complete(request_ptrs[i])) {
+            MPIR_Thread_sync_signal(sync, 0);
+        } else {
+            MPIR_Request_attach_sync(request_ptrs[i], sync);
+        }
+    }
+
+    /* Wait on the synchronization object. */
+    MPIR_Thread_sync_wait(sync);
+
+    MPIR_Thread_sync_free(sync);
+    if (mpi_errno)
+        MPIR_ERR_POP(mpi_errno);
+
+  fn_exit:
+    return mpi_errno;
+  fn_fail:
+    goto fn_exit;
+}
+
+#else
+
+#define MPID_Waitall(count, request_ptrs, array_of_statuses)
+
+#endif
+
+
 #endif /* CH4_PROGRESS_H_INCLUDED */
