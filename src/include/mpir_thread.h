@@ -51,7 +51,7 @@ extern OPA_int_t num_server_thread;
 /* arbitrary, just needed to avoid cleaning up heap allocated memory at thread
  * destruction time */
 #define MPIR_STRERROR_BUF_SIZE (1024)
-#define MPIR_THREAD_REQUEST_CACHE (64)
+#define MPIR_THREAD_REQUEST_CACHE (1024*8)
 
 /* This structure contains all thread-local variables and will be zeroed at
  * allocation time.
