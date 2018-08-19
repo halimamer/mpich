@@ -1060,7 +1060,11 @@ static inline int MPIDI_CH4R_mpi_win_flush(int rank, MPIR_Win * win)
 
     MPIDI_CH4U_EPOCH_PER_TARGET_LOCK_CHECK(win, rank, mpi_errno, goto fn_fail);
     do {
+        int ep_idx;
+        MPIDI_find_rma_ep(win, 0/*dummy rank*/, &ep_idx);
+        MPID_THREAD_CS_EXIT(EP, MPIDI_CH4_Global.ep_locks[ep_idx]);
         MPIDI_CH4R_PROGRESS();
+        MPID_THREAD_CS_ENTER(EP, MPIDI_CH4_Global.ep_locks[ep_idx]);
     } while (MPIR_cc_get(MPIDI_CH4U_WIN_TARGET(win, rank, remote_cmpl_cnts)) != 0);
 
   fn_exit:
