@@ -246,6 +246,8 @@ static inline int MPIDI_OFI_win_init(MPI_Aint length,
     return mpi_errno;
 }
 
+#include "ch4i_workq.h"
+
 #undef FUNCNAME
 #define FUNCNAME MPIDI_OFI_win_progress_fence
 #undef FCNAME
@@ -265,11 +267,13 @@ static inline int MPIDI_OFI_win_progress_fence(MPIR_Win * win)
     MPID_THREAD_CS_ENTER(POBJ, MPIDI_OFI_THREAD_FI_MUTEX);
 
     MPIDI_find_rma_ep(win, 0/*dummy rank*/, &ep_idx);
+    MPIDI_workq_ep_progress(ep_idx);
 
     tcount = *MPIDI_OFI_WIN(win).issued_cntr;
     donecount = fi_cntr_read(MPIDI_OFI_WIN(win).cmpl_cntr);
 
     MPIR_Assert(donecount <= tcount);
+
 
     while (tcount > donecount) {
         MPIR_Assert(donecount <= tcount);
