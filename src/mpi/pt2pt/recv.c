@@ -147,12 +147,13 @@ int MPI_Recv(void *buf, int count, MPI_Datatype datatype, int source, int tag,
        complete */
     if (!MPIR_Request_is_complete(request_ptr))
     {
-        MPID_Wait(request_ptr);
 	MPID_Progress_state progress_state;
 	    
 	MPID_Progress_start(&progress_state);
         while (!MPIR_Request_is_complete(request_ptr))
 	{
+
+#if !defined(MPIDI_CH4_MT_HANDOFF)
 	    /* MT: Progress_wait may release the SINGLE_CS while it
 	       waits */
 	    mpi_errno = MPID_Progress_wait(&progress_state);
@@ -176,9 +177,9 @@ int MPI_Recv(void *buf, int count, MPI_Datatype datatype, int source, int tag,
                 goto fn_fail;
                 /* --END ERROR HANDLING-- */
             }
+#endif
 	}
 	MPID_Progress_end(&progress_state);
-        MPID_Wait_done();
     }
 
     mpi_errno = request_ptr->status.MPI_ERROR;
