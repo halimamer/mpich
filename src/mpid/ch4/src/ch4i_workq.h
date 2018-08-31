@@ -150,7 +150,7 @@ static inline void MPIDI_workq_pt2pt_enqueue_body(MPIDI_workq_op_t op,
 {
     int bucket_idx;
     MPIDI_workq_elemt_t* pt2pt_elemt = NULL;
-    pt2pt_elemt = MPL_malloc(sizeof (*pt2pt_elemt));
+    zm_pool_alloc(MPIDI_CH4_Global.ep_pools[ep_idx], (void**)&pt2pt_elemt);
     pt2pt_elemt->op       = op;
     pt2pt_elemt->send_buf = send_buf;
     pt2pt_elemt->recv_buf = recv_buf;
@@ -179,7 +179,7 @@ static inline void MPIDI_workq_rma_enqueue_body(MPIDI_workq_op_t op,
 {
     int bucket_idx;
     MPIDI_workq_elemt_t* rma_elemt = NULL;
-    rma_elemt = MPL_malloc(sizeof (*rma_elemt));
+    zm_pool_alloc(MPIDI_CH4_Global.ep_pools[ep_idx], (void**)&rma_elemt);
     rma_elemt->op               = op;
     rma_elemt->origin_addr      = origin_addr;
     rma_elemt->origin_count     = origin_count;
@@ -277,7 +277,7 @@ static inline int MPIDI_workq_ep_progress_body(int ep_idx)
             break;
         }
         MPIDI_WORKQ_ISSUE_STOP;
-        MPL_free(workq_elemt);
+        zm_pool_free(MPIDI_CH4_Global.ep_pools[ep_idx], (void*)workq_elemt);
         MPIDI_workq_dequeue(cur_workq, (void**)&workq_elemt);
     }
 

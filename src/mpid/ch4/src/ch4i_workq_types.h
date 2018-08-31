@@ -34,10 +34,11 @@
 #define MPIDI_workq_dequeue_range(q, d, s, t, sz, c)   zm_mpbqueue_dequeue_range(q, d, s, t, sz, c)
 #elif defined(MPIDI_USE_SWPQUEUE)
 #include <queue/zm_swpqueue.h>
+#include <mem/zm_pool.h>
 #define MPIDI_workq_t                   zm_swpqueue_t
-#define MPIDI_workq_init(q, n)          zm_swpqueue_init(q)
-#define MPIDI_workq_enqueue(q, d, i)    zm_swpqueue_enqueue(q, d)
-#define MPIDI_workq_dequeue(q, d)       zm_swpqueue_dequeue(q, d)
+#define MPIDI_workq_init(q, n)          zm_swpqueue_init_explicit(q)
+#define MPIDI_workq_enqueue(q, d, i)    zm_swpqueue_enqueue_explicit(q, d)
+#define MPIDI_workq_dequeue(q, d)       zm_swpqueue_dequeue_explicit(q, d)
 #else
 /* Stub implementation to make it compile */
 typedef void *MPIDI_workq_t;

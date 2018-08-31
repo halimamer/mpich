@@ -282,6 +282,7 @@ typedef struct MPIDI_CH4_Global_t {
     int next_ep_idx;
     int ep_progress_model;
     MPID_Thread_mutex_t *ep_locks;
+    zm_pool_t *ep_pools;
     MPIDI_workq_t *ep_queues;
     /* Per-endpoint queues for saving pending operations to issue */
     int progress_hook_id;
