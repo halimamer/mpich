@@ -241,7 +241,7 @@ int MPID_nem_ofi_init(MPIDI_PG_t * pg_p, int pg_rank, char **bc_val_p, int *val_
     /* -------------------------------- */
     /* Set the MPI maximum tag value    */
     /* -------------------------------- */
-    MPIR_Process.attrs.tag_ub = (1 << MPID_OFI_TAG_BITS - MPIR_TAG_ERROR_BITS - 1) - 1;
+    MPIR_Process.attrs.tag_ub = MPIR_TAG_USABLE_BITS;
 
     /* --------------------------------- */
     /* Wait for all the ranks to publish */

@@ -447,6 +447,7 @@ int MPIR_Init_thread(int *argc, char ***argv, int required, int *provided)
     MPIR_Process.attrs.io = MPI_PROC_NULL;
     MPIR_Process.attrs.lastusedcode = MPI_ERR_LASTCODE;
     MPIR_Process.attrs.tag_ub = MPIR_TAG_USABLE_BITS;
+    MPIR_Process.attrs.tag_bits = MPID_TAG_BITS;
     MPIR_Process.attrs.universe = MPIR_UNIVERSE_SIZE_NOT_SET;
     MPIR_Process.attrs.wtime_is_global = 0;
 
