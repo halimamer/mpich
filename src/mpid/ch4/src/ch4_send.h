@@ -45,6 +45,7 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_send(int transport,
                                       NULL /*message */ , NULL /*processed */);
             (mpi_errno) = MPI_SUCCESS;
         } else {
+            *(request) = NULL;
             mpi_errno =
                 MPIDI_NM_mpi_send(buf, count, datatype, rank, tag, comm, context_offset, av,
                                   request);
@@ -91,6 +92,7 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_isend(int transport,
                                       NULL /*message */ , NULL /*processed */);
             (mpi_errno) = MPI_SUCCESS;
         } else {
+            *(request) = NULL;
             mpi_errno =
                 MPIDI_NM_mpi_isend(buf, count, datatype, rank, tag, comm, context_offset, av,
                                    request);
@@ -138,6 +140,7 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_ssend(int transport,
             (mpi_errno) = MPI_SUCCESS;
 
         } else {
+            *(request) = NULL;
             mpi_errno =
                 MPIDI_NM_mpi_ssend(buf, count, datatype, rank, tag, comm, context_offset, av,
                                    request);
@@ -184,6 +187,7 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_issend(int transport,
                                       NULL /*message */ , NULL /*processed */);
             (mpi_errno) = MPI_SUCCESS;
         } else {
+            *(request) = NULL;
             mpi_errno =
                 MPIDI_NM_mpi_issend(buf, count, datatype, rank, tag, comm, context_offset, av,
                                     request);

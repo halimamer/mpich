@@ -45,6 +45,7 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_recv(int transport,
                                       NULL /*processed */);
             (mpi_errno) = MPI_SUCCESS;
         } else {
+            *(request) = NULL;
             mpi_errno =
                 MPIDI_NM_mpi_recv(buf, count, datatype, rank, tag, comm, context_offset, av, status,
                                   request);
@@ -92,6 +93,7 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_irecv(int transport,
                                       NULL /*message */ , NULL /*processed */);
             (mpi_errno) = MPI_SUCCESS;
         } else {
+            *(request) = NULL;
             mpi_errno =
                 MPIDI_NM_mpi_irecv(buf, count, datatype, rank, tag, comm, context_offset, av,
                                    request);
