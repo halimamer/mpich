@@ -41,6 +41,7 @@ typedef MPIDU_Thread_mutex_t MPID_Thread_mutex_t;
 
 #define MPID_THREAD_SAFE_BEGIN(name, mutex, cs_acq)                     \
 do {                                                                    \
+    cs_acq = 1;                                                         \
     if (MPIDI_CH4_MT_MODEL == MPIDI_CH4_MT_TRYLOCK) {                   \
         MPID_THREAD_CS_TRYENTER(name, mutex, cs_acq);                   \
     } else if (MPIDI_CH4_MT_MODEL == MPIDI_CH4_MT_HANDOFF) {            \
@@ -48,7 +49,6 @@ do {                                                                    \
     } else {                                                            \
         /* Direct */                                                    \
         MPIDU_THREAD_CS_ENTER(name, mutex);                             \
-        cs_acq = 1;                                                     \
     }                                                                   \
 } while (0)
 
