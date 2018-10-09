@@ -41,7 +41,10 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_irecv_unsafe(void *, MPI_Aint, MPI_Datatype, 
                                                 MPIR_Request **);
 MPL_STATIC_INLINE_PREFIX int MPIDI_imrecv_unsafe(void *, MPI_Aint, MPI_Datatype, MPIR_Request *,
                                                  MPIR_Request **);
-
+MPL_STATIC_INLINE_PREFIX int MPIDI_put_unsafe(const void *, int, MPI_Datatype, int, MPI_Aint, int,
+                                              MPI_Datatype, MPIR_Win *);
+MPL_STATIC_INLINE_PREFIX int MPIDI_get_unsafe(void *, int, MPI_Datatype, int, MPI_Aint, int,
+                                              MPI_Datatype, MPIR_Win *);
 MPL_STATIC_INLINE_PREFIX struct MPIDI_workq_elemt *MPIDI_workq_elemt_create(void)
 {
     return MPIR_Handle_obj_alloc(&MPIDI_workq_elemt_mem);
@@ -97,6 +100,7 @@ MPL_STATIC_INLINE_PREFIX void MPIDI_workq_rma_enqueue(MPIDI_workq_op_t op,
                                                       const void *origin_addr,
                                                       int origin_count,
                                                       MPI_Datatype origin_datatype,
+                                                      const void *compare_addr,
                                                       void *result_addr,
                                                       int result_count,
                                                       MPI_Datatype result_datatype,
@@ -204,6 +208,18 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_workq_dispatch(MPIDI_workq_elemt_t * workq_el
                 MPIDI_workq_release_pt2pt_elemt(workq_elemt);
             MPIDI_workq_release_pt2pt_elemt(workq_elemt);
             break;
+        case PUT:
+            MPIDI_put_unsafe(workq_elemt->rma.origin_addr, workq_elemt->rma.origin_count,
+                             workq_elemt->rma.origin_datatype, workq_elemt->rma.target_rank,
+                             workq_elemt->rma.target_disp, workq_elemt->rma.target_count,
+                             workq_elemt->rma.target_datatype, workq_elemt->rma.win_ptr);
+            MPIDI_workq_elemt_free(workq_elemt);
+        case GET:
+            MPIDI_get_unsafe(workq_elemt->rma.result_addr, workq_elemt->rma.origin_count,
+                             workq_elemt->rma.origin_datatype, workq_elemt->rma.target_rank,
+                             workq_elemt->rma.target_disp, workq_elemt->rma.target_count,
+                             workq_elemt->rma.target_datatype, workq_elemt->rma.win_ptr);
+            MPIDI_workq_elemt_free(workq_elemt);
         default:
             mpi_errno = MPI_ERR_OTHER;
             goto fn_fail;
