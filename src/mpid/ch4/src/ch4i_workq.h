@@ -264,8 +264,16 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_workq_vni_progress(void)
 #else /* #if defined(MPIDI_CH4_USE_WORK_QUEUES) */
 #define MPIDI_workq_pt2pt_enqueue(...)
 #define MPIDI_workq_rma_enqueue(...)
-#define MPIDI_workq_vni_progress_unsafe(...) MPI_SUCCESS
-#define MPIDI_workq_vni_progress(...) MPI_SUCCESS
+
+MPL_STATIC_INLINE_PREFIX int MPIDI_workq_vni_progress_unsafe(void)
+{
+    return MPI_SUCCESS;
+}
+
+MPL_STATIC_INLINE_PREFIX int MPIDI_workq_vni_progress(void)
+{
+    return MPI_SUCCESS;
+}
 #endif /* #if defined(MPIDI_CH4_USE_WORK_QUEUES) */
 
 #endif /* CH4I_WORKQ_H_INCLUDED */
