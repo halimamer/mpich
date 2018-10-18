@@ -443,7 +443,7 @@ AC_ARG_ENABLE(ch4-mt,
          handoff   - Use the hand-off model (spawns progress thread)
          trylock   - Use the trylock-enqueue model
          runtime   - Determine the model at runtime through a CVAR
-    ],,enable_ch4_mt=direct)
+    ],,enable_ch4_mt=trylock)
 
 case $enable_ch4_mt in
      direct)

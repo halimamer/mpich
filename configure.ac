@@ -506,8 +506,8 @@ AC_ARG_ENABLE(thread-cs,
 	AC_HELP_STRING([--enable-thread-cs=type],
 			[Choose the method used for critical sections
                          and other atomic updates when multiple
-                         threads are present.  Values may be global
-                         (default), per-object, per-vni, lock-free]),,enable_thread_cs=global)
+                         threads are present.  Values may be default, global,
+                         per-object, per-vni, lock-free]),,enable_thread_cs=default)
 
 AC_ARG_ENABLE(mdta,
     AC_HELP_STRING([--enable-mdta],
@@ -1302,9 +1302,15 @@ AC_ARG_ENABLE([izem],
                           queue    - use the Izem interface for atomic queue objects
                           atomic   - use the Izem interface for CPU atomics
                           yes/all  - all of the above features are enabled
-                          no/none  - none of the above features are enabled],,
-[enable_izem=no])
+                          no/none  - none of the above features are enabled
+                          default  - izem features will be selected automatically],,
+[enable_izem=default])
 
+if test "$device_name" = "ch4" -a "$enable_izem" = "default"; then
+    enable_izem=queue
+else
+    enable_izem=no
+fi
 # strip off multiple options, separated by commas
 save_IFS="$IFS"
 IFS=","
@@ -1356,8 +1362,15 @@ AC_ARG_WITH([zm-prefix],
                           yes|embedded - use the embedded Izem
                           system       - search system paths for an Izem installation
                           no           - disable Izem
-                          <PATH>       - use the Izem at PATH],,
-[with_zm_prefix=no])
+                          <PATH>       - use the Izem at PATH
+                          default      - automatic selection],,
+[with_zm_prefix=default])
+
+if test "$device_name" = "ch4" -a "$with_zm_prefix" = "default"; then
+    with_zm_prefix=embedded
+else
+    with_zm_prefix=no
+fi
 
 zmsrcdir=""
 AC_SUBST([zmsrcdir])
@@ -1652,6 +1665,13 @@ fi
 # Check for value thread_cs choice; set the refcount default if necessary
 thread_granularity=MPICH_THREAD_GRANULARITY__SINGLE
 thread_refcount=MPICH_REFCOUNT__NONE
+
+if test "$device_name" = "ch4" -a "$enable_thread_cs" = default; then
+    enable_thread_cs=per-vni
+else
+    enable_thread_cs=global
+fi
+
 if test "$enable_threads" = "multiple" ; then
     case $enable_thread_cs in 
     global)
