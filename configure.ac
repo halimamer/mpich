@@ -1306,10 +1306,12 @@ AC_ARG_ENABLE([izem],
                           default  - izem features will be selected automatically],,
 [enable_izem=default])
 
-if test "$device_name" = "ch4" -a "$enable_izem" = "default"; then
-    enable_izem=queue
-else
-    enable_izem=no
+if test "$enable_izem" = "default"; then
+   if test "$device_name" = "ch4" -a ; then
+       enable_izem=queue
+   else
+       enable_izem=no
+   fi
 fi
 # strip off multiple options, separated by commas
 save_IFS="$IFS"
@@ -1366,10 +1368,12 @@ AC_ARG_WITH([zm-prefix],
                           default      - automatic selection],,
 [with_zm_prefix=default])
 
-if test "$device_name" = "ch4" -a "$with_zm_prefix" = "default"; then
-    with_zm_prefix=embedded
-else
-    with_zm_prefix=no
+if test "$with_zm_prefix" = "default"; then
+   if test "$device_name" = "ch4"; then
+       with_zm_prefix=embedded
+   else
+       with_zm_prefix=no
+   fi
 fi
 
 zmsrcdir=""
@@ -1666,10 +1670,12 @@ fi
 thread_granularity=MPICH_THREAD_GRANULARITY__SINGLE
 thread_refcount=MPICH_REFCOUNT__NONE
 
-if test "$device_name" = "ch4" -a "$enable_thread_cs" = default; then
-    enable_thread_cs=per-vni
-else
-    enable_thread_cs=global
+if test "$enable_thread_cs" = default; then
+    if test "$device_name" = "ch4"; then
+        enable_thread_cs=per-vni
+    else
+        enable_thread_cs=global
+    fi
 fi
 
 if test "$enable_threads" = "multiple" ; then
