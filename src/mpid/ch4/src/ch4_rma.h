@@ -593,8 +593,11 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_get_safe(void *origin_addr,
     MPID_THREAD_SAFE_BEGIN(VNI, MPIDI_CH4_Global.vni_lock, cs_acq);
 
     if (!cs_acq) {
-        MPIDI_workq_rma_enqueue(GET, NULL, origin_count, origin_datatype, origin_addr, NULL, 0,
-                                MPI_DATATYPE_NULL, target_rank, target_disp, target_count,
+        /* For MPI_Get, "origin" has to be passed to the "result" parameter
+         * field, because `origin_addr` is declared as `const void *`. */
+        MPIDI_workq_rma_enqueue(GET, NULL, 0, MPI_DATATYPE_NULL, NULL,
+                                origin_addr, origin_count, origin_datatype,
+                                target_rank, target_disp, target_count,
                                 target_datatype, MPI_OP_NULL, NULL, 0, 0, win, NULL, NULL);
     } else {
         MPIDI_workq_vni_progress_unsafe();
