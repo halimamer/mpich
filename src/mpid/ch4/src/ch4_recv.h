@@ -234,6 +234,7 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_recv_safe(void *buf,
     if (!cs_acq) {
         *(req) = MPIR_Request_create(MPIR_REQUEST_KIND__RECV);
         MPIR_ERR_CHKANDSTMT((*req) == NULL, mpi_errno, MPIX_ERR_NOREQ, goto fn_fail, "**nomemreq");
+        MPIR_Datatype_add_ref_if_not_builtin(datatype);
         MPIDI_workq_pt2pt_enqueue(RECV, NULL /*send_buf */ , buf, count, datatype,
                                   rank, tag, comm, context_offset, av,
                                   status, *req, NULL /*flag */ , NULL /*message */ ,
@@ -277,6 +278,7 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_irecv_safe(void *buf,
     if (!cs_acq) {
         *(req) = MPIR_Request_create(MPIR_REQUEST_KIND__RECV);
         MPIR_ERR_CHKANDSTMT((*req) == NULL, mpi_errno, MPIX_ERR_NOREQ, goto fn_fail, "**nomemreq");
+        MPIR_Datatype_add_ref_if_not_builtin(datatype);
         MPIDI_workq_pt2pt_enqueue(IRECV, NULL /*send_buf */ , buf, count, datatype,
                                   rank, tag, comm, context_offset, av,
                                   NULL /*status */ , *req, NULL /*flag */ , NULL /*message */ ,
@@ -317,6 +319,7 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_imrecv_safe(void *buf,
         *rreqp = request;
 #endif
         MPIR_ERR_CHKANDSTMT(request == NULL, mpi_errno, MPIX_ERR_NOREQ, goto fn_fail, "**nomemreq");
+        MPIR_Datatype_add_ref_if_not_builtin(datatype);
         MPIDI_workq_pt2pt_enqueue(IMRECV, NULL /*send_buf */ , buf, count, datatype,
                                   0 /*rank */ , 0 /*tag */ , NULL /*comm */ ,
                                   0 /*context_offset */ , NULL /*av */ ,

@@ -245,6 +245,7 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_workq_dispatch(MPIDI_workq_elemt_t * workq_el
 {
     int mpi_errno = MPI_SUCCESS;
     MPIR_Request *req;
+    MPI_Datatype datatype, origin_datatype, target_datatype;
 
     MPIR_Assert(workq_elemt != NULL);
 
@@ -253,10 +254,12 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_workq_dispatch(MPIDI_workq_elemt_t * workq_el
             {
                 struct MPIDI_workq_send *sendop = &workq_elemt->params.pt2pt.send;
                 req = sendop->request;
+                datatype = sendop->datatype;
                 MPIDI_send_unsafe(sendop->send_buf, sendop->count,
                                   sendop->datatype, sendop->rank,
                                   sendop->tag, sendop->comm_ptr,
                                   sendop->context_offset, sendop->addr, &req);
+                MPIR_Datatype_release_if_not_builtin(datatype);
                 MPIDI_workq_release_pt2pt_elemt(workq_elemt);
                 break;
             }
@@ -264,10 +267,12 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_workq_dispatch(MPIDI_workq_elemt_t * workq_el
             {
                 struct MPIDI_workq_send *isendop = &workq_elemt->params.pt2pt.send;
                 req = isendop->request;
+                datatype = isendop->datatype;
                 MPIDI_isend_unsafe(isendop->send_buf, isendop->count,
                                    isendop->datatype, isendop->rank,
                                    isendop->tag, isendop->comm_ptr,
                                    isendop->context_offset, isendop->addr, &req);
+                MPIR_Datatype_release_if_not_builtin(datatype);
                 MPIDI_workq_release_pt2pt_elemt(workq_elemt);
                 break;
             }
@@ -275,10 +280,12 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_workq_dispatch(MPIDI_workq_elemt_t * workq_el
             {
                 struct MPIDI_workq_send *ssendop = &workq_elemt->params.pt2pt.send;
                 req = ssendop->request;
+                datatype = ssendop->datatype;
                 MPIDI_ssend_unsafe(ssendop->send_buf, ssendop->count,
                                    ssendop->datatype, ssendop->rank,
                                    ssendop->tag, ssendop->comm_ptr,
                                    ssendop->context_offset, ssendop->addr, &req);
+                MPIR_Datatype_release_if_not_builtin(datatype);
                 MPIDI_workq_release_pt2pt_elemt(workq_elemt);
                 break;
             }
@@ -286,10 +293,12 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_workq_dispatch(MPIDI_workq_elemt_t * workq_el
             {
                 struct MPIDI_workq_send *issendop = &workq_elemt->params.pt2pt.send;
                 req = issendop->request;
+                datatype = issendop->datatype;
                 MPIDI_issend_unsafe(issendop->send_buf, issendop->count,
                                     issendop->datatype, issendop->rank,
                                     issendop->tag, issendop->comm_ptr,
                                     issendop->context_offset, issendop->addr, &req);
+                MPIR_Datatype_release_if_not_builtin(datatype);
                 MPIDI_workq_release_pt2pt_elemt(workq_elemt);
                 break;
             }
@@ -297,10 +306,12 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_workq_dispatch(MPIDI_workq_elemt_t * workq_el
             {
                 struct MPIDI_workq_recv *recvop = &workq_elemt->params.pt2pt.recv;
                 req = recvop->request;
+                datatype = recvop->datatype;
                 MPIDI_recv_unsafe(recvop->recv_buf, recvop->count,
                                   recvop->datatype, recvop->rank,
                                   recvop->tag, recvop->comm_ptr,
                                   recvop->context_offset, recvop->addr, recvop->status, &req);
+                MPIR_Datatype_release_if_not_builtin(datatype);
                 MPIDI_workq_release_pt2pt_elemt(workq_elemt);
                 break;
             }
@@ -308,10 +319,12 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_workq_dispatch(MPIDI_workq_elemt_t * workq_el
             {
                 struct MPIDI_workq_irecv *irecvop = &workq_elemt->params.pt2pt.irecv;
                 req = irecvop->request;
+                datatype = irecvop->datatype;
                 MPIDI_irecv_unsafe(irecvop->recv_buf, irecvop->count,
                                    irecvop->datatype, irecvop->rank,
                                    irecvop->tag, irecvop->comm_ptr,
                                    irecvop->context_offset, irecvop->addr, &req);
+                MPIR_Datatype_release_if_not_builtin(datatype);
                 MPIDI_workq_release_pt2pt_elemt(workq_elemt);
                 break;
             }
@@ -319,8 +332,10 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_workq_dispatch(MPIDI_workq_elemt_t * workq_el
             {
                 struct MPIDI_workq_imrecv *imrecvop = &workq_elemt->params.pt2pt.imrecv;
                 req = imrecvop->request;
+                datatype = imrecvop->datatype;
                 MPIDI_imrecv_unsafe(imrecvop->buf, imrecvop->count,
                                     imrecvop->datatype, *imrecvop->message, &req);
+                MPIR_Datatype_release_if_not_builtin(datatype);
 #ifndef MPIDI_CH4_DIRECT_NETMOD
                 if (!MPIDI_CH4I_REQUEST(*imrecvop->message, is_local))
 #endif
@@ -331,20 +346,28 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_workq_dispatch(MPIDI_workq_elemt_t * workq_el
         case PUT:
             {
                 struct MPIDI_workq_put *putop = &workq_elemt->params.rma.put;
+                origin_datatype = putop->origin_datatype;
+                target_datatype = putop->target_datatype;
                 MPIDI_put_unsafe(putop->origin_addr, putop->origin_count,
                                  putop->origin_datatype, putop->target_rank,
                                  putop->target_disp, putop->target_count,
                                  putop->target_datatype, putop->win_ptr);
+                MPIR_Datatype_release_if_not_builtin(origin_datatype);
+                MPIR_Datatype_release_if_not_builtin(target_datatype);
                 MPIDI_workq_elemt_free(workq_elemt);
                 break;
             }
         case GET:
             {
                 struct MPIDI_workq_get *getop = &workq_elemt->params.rma.get;
+                origin_datatype = getop->origin_datatype;
+                target_datatype = getop->target_datatype;
                 MPIDI_get_unsafe(getop->origin_addr, getop->origin_count,
                                  getop->origin_datatype, getop->target_rank,
                                  getop->target_disp, getop->target_count,
                                  getop->target_datatype, getop->win_ptr);
+                MPIR_Datatype_release_if_not_builtin(origin_datatype);
+                MPIR_Datatype_release_if_not_builtin(target_datatype);
                 MPIDI_workq_elemt_free(workq_elemt);
                 break;
             }

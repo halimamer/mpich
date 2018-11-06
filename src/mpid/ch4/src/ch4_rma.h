@@ -557,6 +557,8 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_put_safe(const void *origin_addr,
     MPID_THREAD_SAFE_BEGIN(VNI, MPIDI_CH4_Global.vni_lock, cs_acq);
 
     if (!cs_acq) {
+        MPIR_Datatype_add_ref_if_not_builtin(origin_datatype);
+        MPIR_Datatype_add_ref_if_not_builtin(target_datatype);
         MPIDI_workq_rma_enqueue(PUT, origin_addr, origin_count, origin_datatype, NULL, NULL, 0,
                                 MPI_DATATYPE_NULL, target_rank, target_disp, target_count,
                                 target_datatype, MPI_OP_NULL, win, NULL, NULL);
@@ -593,6 +595,8 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_get_safe(void *origin_addr,
     MPID_THREAD_SAFE_BEGIN(VNI, MPIDI_CH4_Global.vni_lock, cs_acq);
 
     if (!cs_acq) {
+        MPIR_Datatype_add_ref_if_not_builtin(origin_datatype);
+        MPIR_Datatype_add_ref_if_not_builtin(target_datatype);
         /* For MPI_Get, "origin" has to be passed to the "result" parameter
          * field, because `origin_addr` is declared as `const void *`. */
         MPIDI_workq_rma_enqueue(GET, NULL, 0, MPI_DATATYPE_NULL, NULL,
