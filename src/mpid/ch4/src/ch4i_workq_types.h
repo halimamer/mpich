@@ -73,9 +73,7 @@ typedef enum MPIDI_workq_op MPIDI_workq_op_t;
 
 /* Indentifies the delegated operation */
 enum MPIDI_workq_op { SEND, ISEND, SSEND, ISSEND, RSEND, IRSEND, RECV, IRECV, IMRECV, IPROBE,
-    IMPROBE, PUT, GET, ACC, CAS, FAO, GACC, POST, COMPLETE, FENCE, LOCK, UNLOCK, LOCK_ALL,
-    UNLOCK_ALL,
-    FLUSH, FLUSH_ALL, FLUSH_LOCAL, FLUSH_LOCAL_ALL
+    IMPROBE, PUT, GET, ACC, CAS, FAO, GACC,
 };
 
 typedef struct MPIDI_workq_elemt MPIDI_workq_elemt_t;
@@ -119,9 +117,6 @@ struct MPIDI_workq_elemt {
             int target_count;
             MPI_Datatype target_datatype;
             MPI_Op acc_op;
-            MPIR_Group *group;
-            int lock_type;
-            int assert;         /* assert for sync functions */
             MPIR_Win *win_ptr;
             MPIDI_av_entry_t *addr;
         } rma;
