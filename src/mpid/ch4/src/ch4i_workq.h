@@ -109,9 +109,6 @@ MPL_STATIC_INLINE_PREFIX void MPIDI_workq_rma_enqueue(MPIDI_workq_op_t op,
                                                       int target_count,
                                                       MPI_Datatype target_datatype,
                                                       MPI_Op acc_op,
-                                                      MPIR_Group * group,
-                                                      int lock_type,
-                                                      int assert,
                                                       MPIR_Win * win_ptr,
                                                       MPIDI_av_entry_t * addr,
                                                       OPA_int_t * processed)
@@ -131,9 +128,6 @@ MPL_STATIC_INLINE_PREFIX void MPIDI_workq_rma_enqueue(MPIDI_workq_op_t op,
     rma_elemt->rma.target_count = target_count;
     rma_elemt->rma.target_datatype = target_datatype;
     rma_elemt->rma.acc_op = acc_op;
-    rma_elemt->rma.group = group;
-    rma_elemt->rma.lock_type = lock_type;
-    rma_elemt->rma.assert = assert;
     rma_elemt->rma.win_ptr = win_ptr;
     rma_elemt->rma.addr = addr;
 
