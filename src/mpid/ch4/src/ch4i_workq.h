@@ -79,19 +79,100 @@ MPL_STATIC_INLINE_PREFIX void MPIDI_workq_pt2pt_enqueue(MPIDI_workq_op_t op,
     pt2pt_elemt = &request->dev.ch4.command;
     pt2pt_elemt->op = op;
     pt2pt_elemt->processed = processed;
-    pt2pt_elemt->pt2pt.send_buf = send_buf;
-    pt2pt_elemt->pt2pt.recv_buf = recv_buf;
-    pt2pt_elemt->pt2pt.count = count;
-    pt2pt_elemt->pt2pt.datatype = datatype;
-    pt2pt_elemt->pt2pt.rank = rank;
-    pt2pt_elemt->pt2pt.tag = tag;
-    pt2pt_elemt->pt2pt.comm_ptr = comm_ptr;
-    pt2pt_elemt->pt2pt.context_offset = context_offset;
-    pt2pt_elemt->pt2pt.addr = addr;
-    pt2pt_elemt->pt2pt.status = status;
-    pt2pt_elemt->pt2pt.request = request;
-    pt2pt_elemt->pt2pt.flag = flag;
-    pt2pt_elemt->pt2pt.message = message;
+
+    switch (op) {
+        case SEND:
+        case ISEND:
+        case SSEND:
+        case ISSEND:
+        case RSEND:
+        case IRSEND:
+            {
+                struct MPIDI_workq_send *sendop = &pt2pt_elemt->params.pt2pt.send;
+                sendop->send_buf = send_buf;
+                sendop->count = count;
+                sendop->datatype = datatype;
+                sendop->rank = rank;
+                sendop->tag = tag;
+                sendop->comm_ptr = comm_ptr;
+                sendop->context_offset = context_offset;
+                sendop->addr = addr;
+                sendop->request = request;
+                break;
+            }
+        case RECV:
+            {
+                struct MPIDI_workq_recv *recvop = &pt2pt_elemt->params.pt2pt.recv;
+                recvop->recv_buf = recv_buf;
+                recvop->count = count;
+                recvop->datatype = datatype;
+                recvop->rank = rank;
+                recvop->tag = tag;
+                recvop->comm_ptr = comm_ptr;
+                recvop->context_offset = context_offset;
+                recvop->addr = addr;
+                recvop->status = status;
+                recvop->request = request;
+                break;
+            }
+        case IRECV:
+            {
+                struct MPIDI_workq_irecv *irecvop = &pt2pt_elemt->params.pt2pt.irecv;
+                irecvop->recv_buf = recv_buf;
+                irecvop->count = count;
+                irecvop->datatype = datatype;
+                irecvop->rank = rank;
+                irecvop->tag = tag;
+                irecvop->comm_ptr = comm_ptr;
+                irecvop->context_offset = context_offset;
+                irecvop->addr = addr;
+                irecvop->request = request;
+                break;
+            }
+        case IPROBE:
+            {
+                struct MPIDI_workq_iprobe *iprobeop = &pt2pt_elemt->params.pt2pt.iprobe;
+                iprobeop->count = count;
+                iprobeop->datatype = datatype;
+                iprobeop->rank = rank;
+                iprobeop->tag = tag;
+                iprobeop->comm_ptr = comm_ptr;
+                iprobeop->context_offset = context_offset;
+                iprobeop->addr = addr;
+                iprobeop->status = status;
+                iprobeop->request = request;
+                iprobeop->flag = flag;
+                break;
+            }
+        case IMPROBE:
+            {
+                struct MPIDI_workq_improbe *improbeop = &pt2pt_elemt->params.pt2pt.improbe;
+                improbeop->count = count;
+                improbeop->datatype = datatype;
+                improbeop->rank = rank;
+                improbeop->tag = tag;
+                improbeop->comm_ptr = comm_ptr;
+                improbeop->context_offset = context_offset;
+                improbeop->addr = addr;
+                improbeop->status = status;
+                improbeop->request = request;
+                improbeop->flag = flag;
+                improbeop->message = message;
+                break;
+            }
+        case IMRECV:
+            {
+                struct MPIDI_workq_imrecv *imrecvop = &pt2pt_elemt->params.pt2pt.imrecv;
+                imrecvop->buf = recv_buf;
+                imrecvop->count = count;
+                imrecvop->datatype = datatype;
+                imrecvop->message = message;
+                imrecvop->request = request;
+                break;
+            }
+        default:
+            MPIR_Assert(0);
+    }
 
     MPIDI_workq_enqueue(&MPIDI_CH4_Global.workqueue, pt2pt_elemt);
 }
@@ -117,20 +198,39 @@ MPL_STATIC_INLINE_PREFIX void MPIDI_workq_rma_enqueue(MPIDI_workq_op_t op,
     rma_elemt = MPIDI_workq_elemt_create();
     rma_elemt->op = op;
     rma_elemt->processed = processed;
-    rma_elemt->rma.origin_addr = origin_addr;
-    rma_elemt->rma.origin_count = origin_count;
-    rma_elemt->rma.origin_datatype = origin_datatype;
-    rma_elemt->rma.result_addr = result_addr;
-    rma_elemt->rma.result_count = result_count;
-    rma_elemt->rma.result_datatype = result_datatype;
-    rma_elemt->rma.target_rank = target_rank;
-    rma_elemt->rma.target_disp = target_disp;
-    rma_elemt->rma.target_count = target_count;
-    rma_elemt->rma.target_datatype = target_datatype;
-    rma_elemt->rma.acc_op = acc_op;
-    rma_elemt->rma.win_ptr = win_ptr;
-    rma_elemt->rma.addr = addr;
 
+    switch (op) {
+        case PUT:
+            {
+                struct MPIDI_workq_put *putop = &rma_elemt->params.rma.put;
+                putop->origin_addr = origin_addr;
+                putop->origin_count = origin_count;
+                putop->origin_datatype = origin_datatype;
+                putop->target_rank = target_rank;
+                putop->target_disp = target_disp;
+                putop->target_count = target_count;
+                putop->target_datatype = target_datatype;
+                putop->win_ptr = win_ptr;
+                putop->addr = addr;
+                break;
+            }
+        case GET:
+            {
+                struct MPIDI_workq_get *getop = &rma_elemt->params.rma.get;
+                getop->origin_addr = result_addr;
+                getop->origin_count = result_count;
+                getop->origin_datatype = result_datatype;
+                getop->target_rank = target_rank;
+                getop->target_disp = target_disp;
+                getop->target_count = target_count;
+                getop->target_datatype = target_datatype;
+                getop->win_ptr = win_ptr;
+                getop->addr = addr;
+                break;
+            }
+        default:
+            MPIR_Assert(0);
+    }
     MPIDI_workq_enqueue(&MPIDI_CH4_Global.workqueue, rma_elemt);
 }
 
@@ -147,75 +247,107 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_workq_dispatch(MPIDI_workq_elemt_t * workq_el
     MPIR_Request *req;
 
     MPIR_Assert(workq_elemt != NULL);
-    req = workq_elemt->pt2pt.request;
 
     switch (workq_elemt->op) {
         case SEND:
-            MPIDI_send_unsafe(workq_elemt->pt2pt.send_buf, workq_elemt->pt2pt.count,
-                              workq_elemt->pt2pt.datatype, workq_elemt->pt2pt.rank,
-                              workq_elemt->pt2pt.tag, workq_elemt->pt2pt.comm_ptr,
-                              workq_elemt->pt2pt.context_offset, workq_elemt->pt2pt.addr, &req);
-            MPIDI_workq_release_pt2pt_elemt(workq_elemt);
-            break;
-        case ISEND:
-            MPIDI_isend_unsafe(workq_elemt->pt2pt.send_buf, workq_elemt->pt2pt.count,
-                               workq_elemt->pt2pt.datatype, workq_elemt->pt2pt.rank,
-                               workq_elemt->pt2pt.tag, workq_elemt->pt2pt.comm_ptr,
-                               workq_elemt->pt2pt.context_offset, workq_elemt->pt2pt.addr, &req);
-            MPIDI_workq_release_pt2pt_elemt(workq_elemt);
-            break;
-        case SSEND:
-            MPIDI_ssend_unsafe(workq_elemt->pt2pt.send_buf, workq_elemt->pt2pt.count,
-                               workq_elemt->pt2pt.datatype, workq_elemt->pt2pt.rank,
-                               workq_elemt->pt2pt.tag, workq_elemt->pt2pt.comm_ptr,
-                               workq_elemt->pt2pt.context_offset, workq_elemt->pt2pt.addr, &req);
-            MPIDI_workq_release_pt2pt_elemt(workq_elemt);
-            break;
-        case ISSEND:
-            MPIDI_issend_unsafe(workq_elemt->pt2pt.send_buf, workq_elemt->pt2pt.count,
-                                workq_elemt->pt2pt.datatype, workq_elemt->pt2pt.rank,
-                                workq_elemt->pt2pt.tag, workq_elemt->pt2pt.comm_ptr,
-                                workq_elemt->pt2pt.context_offset, workq_elemt->pt2pt.addr, &req);
-            MPIDI_workq_release_pt2pt_elemt(workq_elemt);
-            break;
-        case RECV:
-            MPIDI_recv_unsafe(workq_elemt->pt2pt.recv_buf, workq_elemt->pt2pt.count,
-                              workq_elemt->pt2pt.datatype, workq_elemt->pt2pt.rank,
-                              workq_elemt->pt2pt.tag, workq_elemt->pt2pt.comm_ptr,
-                              workq_elemt->pt2pt.context_offset, workq_elemt->pt2pt.addr,
-                              workq_elemt->pt2pt.status, &req);
-            MPIDI_workq_release_pt2pt_elemt(workq_elemt);
-            break;
-        case IRECV:
-            MPIDI_irecv_unsafe(workq_elemt->pt2pt.recv_buf, workq_elemt->pt2pt.count,
-                               workq_elemt->pt2pt.datatype, workq_elemt->pt2pt.rank,
-                               workq_elemt->pt2pt.tag, workq_elemt->pt2pt.comm_ptr,
-                               workq_elemt->pt2pt.context_offset, workq_elemt->pt2pt.addr, &req);
-            MPIDI_workq_release_pt2pt_elemt(workq_elemt);
-            break;
-        case IMRECV:
-            MPIDI_imrecv_unsafe(workq_elemt->pt2pt.recv_buf, workq_elemt->pt2pt.count,
-                                workq_elemt->pt2pt.datatype, *workq_elemt->pt2pt.message, &req);
-#ifndef MPIDI_CH4_DIRECT_NETMOD
-            if (!MPIDI_CH4I_REQUEST(*workq_elemt->pt2pt.message, is_local))
-#endif
+            {
+                struct MPIDI_workq_send *sendop = &workq_elemt->params.pt2pt.send;
+                req = sendop->request;
+                MPIDI_send_unsafe(sendop->send_buf, sendop->count,
+                                  sendop->datatype, sendop->rank,
+                                  sendop->tag, sendop->comm_ptr,
+                                  sendop->context_offset, sendop->addr, &req);
                 MPIDI_workq_release_pt2pt_elemt(workq_elemt);
-            MPIDI_workq_release_pt2pt_elemt(workq_elemt);
-            break;
+                break;
+            }
+        case ISEND:
+            {
+                struct MPIDI_workq_send *isendop = &workq_elemt->params.pt2pt.send;
+                req = isendop->request;
+                MPIDI_isend_unsafe(isendop->send_buf, isendop->count,
+                                   isendop->datatype, isendop->rank,
+                                   isendop->tag, isendop->comm_ptr,
+                                   isendop->context_offset, isendop->addr, &req);
+                MPIDI_workq_release_pt2pt_elemt(workq_elemt);
+                break;
+            }
+        case SSEND:
+            {
+                struct MPIDI_workq_send *ssendop = &workq_elemt->params.pt2pt.send;
+                req = ssendop->request;
+                MPIDI_ssend_unsafe(ssendop->send_buf, ssendop->count,
+                                   ssendop->datatype, ssendop->rank,
+                                   ssendop->tag, ssendop->comm_ptr,
+                                   ssendop->context_offset, ssendop->addr, &req);
+                MPIDI_workq_release_pt2pt_elemt(workq_elemt);
+                break;
+            }
+        case ISSEND:
+            {
+                struct MPIDI_workq_send *issendop = &workq_elemt->params.pt2pt.send;
+                req = issendop->request;
+                MPIDI_issend_unsafe(issendop->send_buf, issendop->count,
+                                    issendop->datatype, issendop->rank,
+                                    issendop->tag, issendop->comm_ptr,
+                                    issendop->context_offset, issendop->addr, &req);
+                MPIDI_workq_release_pt2pt_elemt(workq_elemt);
+                break;
+            }
+        case RECV:
+            {
+                struct MPIDI_workq_recv *recvop = &workq_elemt->params.pt2pt.recv;
+                req = recvop->request;
+                MPIDI_recv_unsafe(recvop->recv_buf, recvop->count,
+                                  recvop->datatype, recvop->rank,
+                                  recvop->tag, recvop->comm_ptr,
+                                  recvop->context_offset, recvop->addr, recvop->status, &req);
+                MPIDI_workq_release_pt2pt_elemt(workq_elemt);
+                break;
+            }
+        case IRECV:
+            {
+                struct MPIDI_workq_irecv *irecvop = &workq_elemt->params.pt2pt.irecv;
+                req = irecvop->request;
+                MPIDI_irecv_unsafe(irecvop->recv_buf, irecvop->count,
+                                   irecvop->datatype, irecvop->rank,
+                                   irecvop->tag, irecvop->comm_ptr,
+                                   irecvop->context_offset, irecvop->addr, &req);
+                MPIDI_workq_release_pt2pt_elemt(workq_elemt);
+                break;
+            }
+        case IMRECV:
+            {
+                struct MPIDI_workq_imrecv *imrecvop = &workq_elemt->params.pt2pt.imrecv;
+                req = imrecvop->request;
+                MPIDI_imrecv_unsafe(imrecvop->buf, imrecvop->count,
+                                    imrecvop->datatype, *imrecvop->message, &req);
+#ifndef MPIDI_CH4_DIRECT_NETMOD
+                if (!MPIDI_CH4I_REQUEST(*imrecvop->message, is_local))
+#endif
+                    MPIDI_workq_release_pt2pt_elemt(workq_elemt);
+                MPIDI_workq_release_pt2pt_elemt(workq_elemt);
+                break;
+            }
         case PUT:
-            MPIDI_put_unsafe(workq_elemt->rma.origin_addr, workq_elemt->rma.origin_count,
-                             workq_elemt->rma.origin_datatype, workq_elemt->rma.target_rank,
-                             workq_elemt->rma.target_disp, workq_elemt->rma.target_count,
-                             workq_elemt->rma.target_datatype, workq_elemt->rma.win_ptr);
-            MPIDI_workq_elemt_free(workq_elemt);
-            break;
+            {
+                struct MPIDI_workq_put *putop = &workq_elemt->params.rma.put;
+                MPIDI_put_unsafe(putop->origin_addr, putop->origin_count,
+                                 putop->origin_datatype, putop->target_rank,
+                                 putop->target_disp, putop->target_count,
+                                 putop->target_datatype, putop->win_ptr);
+                MPIDI_workq_elemt_free(workq_elemt);
+                break;
+            }
         case GET:
-            MPIDI_get_unsafe(workq_elemt->rma.result_addr, workq_elemt->rma.origin_count,
-                             workq_elemt->rma.origin_datatype, workq_elemt->rma.target_rank,
-                             workq_elemt->rma.target_disp, workq_elemt->rma.target_count,
-                             workq_elemt->rma.target_datatype, workq_elemt->rma.win_ptr);
-            MPIDI_workq_elemt_free(workq_elemt);
-            break;
+            {
+                struct MPIDI_workq_get *getop = &workq_elemt->params.rma.get;
+                MPIDI_get_unsafe(getop->origin_addr, getop->origin_count,
+                                 getop->origin_datatype, getop->target_rank,
+                                 getop->target_disp, getop->target_count,
+                                 getop->target_datatype, getop->win_ptr);
+                MPIDI_workq_elemt_free(workq_elemt);
+                break;
+            }
         default:
             mpi_errno = MPI_ERR_OTHER;
             goto fn_fail;
@@ -236,10 +368,7 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_workq_vni_progress_unsafe(void)
         if (mpi_errno != MPI_SUCCESS)
             goto fn_fail;
         MPIDI_workq_dequeue(&MPIDI_CH4_Global.workqueue, (void **) &workq_elemt);
-    }
-
-  fn_fail:
-    return mpi_errno;
+  } fn_fail:return mpi_errno;
 }
 
 MPL_STATIC_INLINE_PREFIX int MPIDI_workq_vni_progress(void)
