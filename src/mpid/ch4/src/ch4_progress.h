@@ -268,9 +268,13 @@ MPL_STATIC_INLINE_PREFIX int MPID_Progress_deactivate(int id)
     MPID_THREAD_CS_ENTER(VNI, MPIDI_CH4I_THREAD_PROGRESS_HOOK_MUTEX);
     MPIR_Assert(id >= 0);
     MPIR_Assert(id < MAX_PROGRESS_HOOKS);
-    MPIR_Assert(MPIDI_CH4_Global.progress_hooks[id].active == TRUE);
-    MPIR_Assert(MPIDI_CH4_Global.progress_hooks[id].func_ptr != NULL);
-    MPIDI_CH4_Global.progress_hooks[id].active = FALSE;
+    /* We shouldn't assert that active == TRUE here for the same reasons
+     * as not asserting active == FALSE in Progress_activate */
+
+    if(MPIDI_CH4_Global.progress_hooks[id].active == TRUE) {
+        MPIR_Assert(MPIDI_CH4_Global.progress_hooks[id].func_ptr != NULL);
+        MPIDI_CH4_Global.progress_hooks[id].active = FALSE;
+    }
 
     MPID_THREAD_CS_EXIT(VNI, MPIDI_CH4I_THREAD_PROGRESS_HOOK_MUTEX);
     MPID_THREAD_CS_EXIT(POBJ, MPIDI_CH4I_THREAD_PROGRESS_HOOK_MUTEX);

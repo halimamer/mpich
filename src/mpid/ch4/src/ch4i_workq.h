@@ -214,12 +214,14 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_workq_dispatch(MPIDI_workq_elemt_t * workq_el
                              workq_elemt->rma.target_disp, workq_elemt->rma.target_count,
                              workq_elemt->rma.target_datatype, workq_elemt->rma.win_ptr);
             MPIDI_workq_elemt_free(workq_elemt);
+            break;
         case GET:
             MPIDI_get_unsafe(workq_elemt->rma.result_addr, workq_elemt->rma.origin_count,
                              workq_elemt->rma.origin_datatype, workq_elemt->rma.target_rank,
                              workq_elemt->rma.target_disp, workq_elemt->rma.target_count,
                              workq_elemt->rma.target_datatype, workq_elemt->rma.win_ptr);
             MPIDI_workq_elemt_free(workq_elemt);
+            break;
         default:
             mpi_errno = MPI_ERR_OTHER;
             goto fn_fail;
