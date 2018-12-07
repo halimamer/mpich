@@ -135,6 +135,27 @@ static inline void MPIDI_ep_progress_cs_exit(int ep_idx) {
 #define MPIDI_WORKQ_RMA_ENQUEUE_STOP
 #endif
 
+static inline void pwork_create(MPIDI_workq_op_t op, const void *send_buf,
+                                void *recv_buf, MPI_Aint count,
+                                MPI_Datatype datatype, int rank, int tag,
+                                MPIR_Comm *comm_ptr, int context_offset,
+                                MPI_Status *status,
+                                MPIR_Request *request, MPIDI_workq_elemt_t **elemt) {
+    MPIDI_workq_elemt_t *pt2pt_elemt = MPL_malloc(sizeof (*pt2pt_elemt));
+    pt2pt_elemt->op       = op;
+    pt2pt_elemt->send_buf = send_buf;
+    pt2pt_elemt->recv_buf = recv_buf;
+    pt2pt_elemt->count    = count;
+    pt2pt_elemt->datatype = datatype;
+    pt2pt_elemt->rank     = rank;
+    pt2pt_elemt->tag      = tag;
+    pt2pt_elemt->comm_ptr = comm_ptr;
+    pt2pt_elemt->context_offset = context_offset;
+    pt2pt_elemt->status  = status;
+    pt2pt_elemt->request  = request;
+    *elemt = pt2pt_elemt;
+}
+
 static inline void MPIDI_workq_pt2pt_enqueue_body(MPIDI_workq_op_t op,
                                                   const void *send_buf,
                                                   void *recv_buf,
@@ -150,20 +171,28 @@ static inline void MPIDI_workq_pt2pt_enqueue_body(MPIDI_workq_op_t op,
 {
     int bucket_idx;
     MPIDI_workq_elemt_t* pt2pt_elemt = NULL;
-    pt2pt_elemt = MPL_malloc(sizeof (*pt2pt_elemt));
-    pt2pt_elemt->op       = op;
-    pt2pt_elemt->send_buf = send_buf;
-    pt2pt_elemt->recv_buf = recv_buf;
-    pt2pt_elemt->count    = count;
-    pt2pt_elemt->datatype = datatype;
-    pt2pt_elemt->rank     = rank;
-    pt2pt_elemt->tag      = tag;
-    pt2pt_elemt->comm_ptr = comm_ptr;
-    pt2pt_elemt->context_offset = context_offset;
-    pt2pt_elemt->status  = status;
-    pt2pt_elemt->request  = request;
+    pwork_create(op, send_buf, recv_buf, count, datatype, rank, tag, comm_ptr,
+                 context_offset, status, request, &pt2pt_elemt);
     MPIDI_find_tag_bucket(comm_ptr, rank, tag, &bucket_idx);
     MPIDI_workq_enqueue(&MPIDI_CH4_Global.ep_queues[ep_idx], pt2pt_elemt, bucket_idx);
+}
+
+static inline void rwork_create(MPIDI_workq_op_t op, const void *origin_addr,
+                                int origin_count, MPI_Datatype origin_datatype,
+                                int target_rank, MPI_Aint target_disp,
+                                int target_count, MPI_Datatype target_datatype,
+                                MPIR_Win *win_ptr, MPIDI_workq_elemt_t **elemt) {
+    MPIDI_workq_elemt_t *rma_elemt = MPL_malloc(sizeof (*rma_elemt));
+    rma_elemt->op               = op;
+    rma_elemt->origin_addr      = origin_addr;
+    rma_elemt->origin_count     = origin_count;
+    rma_elemt->origin_datatype  = origin_datatype;
+    rma_elemt->target_rank      = target_rank;
+    rma_elemt->target_disp      = target_disp;
+    rma_elemt->target_count     = target_count;
+    rma_elemt->target_datatype  = target_datatype;
+    rma_elemt->win_ptr          = win_ptr;
+    *elemt = rma_elemt;
 }
 
 static inline void MPIDI_workq_rma_enqueue_body(MPIDI_workq_op_t op,
@@ -179,34 +208,14 @@ static inline void MPIDI_workq_rma_enqueue_body(MPIDI_workq_op_t op,
 {
     int bucket_idx;
     MPIDI_workq_elemt_t* rma_elemt = NULL;
-    rma_elemt = MPL_malloc(sizeof (*rma_elemt));
-    rma_elemt->op               = op;
-    rma_elemt->origin_addr      = origin_addr;
-    rma_elemt->origin_count     = origin_count;
-    rma_elemt->origin_datatype  = origin_datatype;
-    rma_elemt->target_rank      = target_rank;
-    rma_elemt->target_disp      = target_disp;
-    rma_elemt->target_count     = target_count;
-    rma_elemt->target_datatype  = target_datatype;
-    rma_elemt->win_ptr          = win_ptr;
+    rwork_create(op, origin_addr, origin_count, origin_datatype, target_rank,
+                 target_disp, target_count, target_datatype, win_ptr, &rma_elemt);
     MPIDI_find_rma_bucket(win_ptr, target_rank, &bucket_idx);
     MPIDI_workq_enqueue(&MPIDI_CH4_Global.ep_queues[ep_idx], rma_elemt, bucket_idx);
 }
 
-#if !defined(WORKD_DEQ_RANGE)
-
-static inline int MPIDI_workq_ep_progress_body(int ep_idx)
-{
-    int mpi_errno = MPI_SUCCESS;
-    MPIDI_workq_elemt_t* workq_elemt = NULL;
-    MPIDI_workq_t *cur_workq = &MPIDI_CH4_Global.ep_queues[ep_idx];
-
-    MPIDI_WORKQ_PROGRESS_START;
-
-    MPIDI_workq_dequeue(cur_workq, (void**)&workq_elemt);
-    MPIDI_WORKQ_QUEUE_TRAVERSAL(workq_elemt);
-    while(workq_elemt != NULL) {
-        MPIDI_WORKQ_ISSUE_START;
+static inline int execute_work(MPIDI_workq_elemt_t *workq_elemt) {
+        int mpi_errno = MPI_SUCCESS;
         switch(workq_elemt->op) {
         case SEND:
             mpi_errno = MPIDI_NM_mpi_send(workq_elemt->send_buf,
@@ -276,14 +285,37 @@ static inline int MPIDI_workq_ep_progress_body(int ep_idx)
             if (mpi_errno != MPI_SUCCESS) goto fn_fail;
             break;
         }
+
+fn_exit:
+    return mpi_errno;
+fn_fail:
+    goto fn_exit;
+}
+
+#if !defined(WORKD_DEQ_RANGE)
+
+static inline int MPIDI_workq_ep_progress_body(int ep_idx)
+{
+    int mpi_errno = MPI_SUCCESS;
+    MPIDI_workq_elemt_t* workq_elemt = NULL;
+    MPIDI_workq_t *cur_workq = &MPIDI_CH4_Global.ep_queues[ep_idx];
+
+    MPIDI_WORKQ_PROGRESS_START;
+
+    MPIDI_workq_dequeue(cur_workq, (void**)&workq_elemt);
+    MPIDI_WORKQ_QUEUE_TRAVERSAL(workq_elemt);
+    while(workq_elemt != NULL) {
+        MPIDI_WORKQ_ISSUE_START;
+
+        mpi_errno = execute_work(workq_elemt);
+        MPIR_Assert(mpi_errno == MPI_SUCCESS);
+
         MPIDI_WORKQ_ISSUE_STOP;
         MPL_free(workq_elemt);
         MPIDI_workq_dequeue(cur_workq, (void**)&workq_elemt);
     }
 
     MPIDI_WORKQ_PROGRESS_STOP;
-
-fn_fail:
     return mpi_errno;
 }
 
@@ -316,75 +348,10 @@ static inline int MPIDI_workq_ep_progress_body(int ep_idx)
             for(i = 0; i < out_count; i++) {
                 workq_elemt = (MPIDI_workq_elemt_t*) elemts[i];
                 MPIDI_WORKQ_ISSUE_START;
-                switch(workq_elemt->op) {
-                case SEND:
-                    mpi_errno = MPIDI_NM_mpi_send(workq_elemt->send_buf,
-                                                  workq_elemt->count,
-                                                  workq_elemt->datatype,
-                                                  workq_elemt->rank,
-                                                  workq_elemt->tag,
-                                                  workq_elemt->comm_ptr,
-                                                  workq_elemt->context_offset,
-                                                  &workq_elemt->request);
-                    if (mpi_errno != MPI_SUCCESS) goto fn_fail;
-                    break;
-                case ISEND:
-                    mpi_errno = MPIDI_NM_mpi_isend(workq_elemt->send_buf,
-                                                   workq_elemt->count,
-                                                   workq_elemt->datatype,
-                                                   workq_elemt->rank,
-                                                   workq_elemt->tag,
-                                                   workq_elemt->comm_ptr,
-                                                   workq_elemt->context_offset,
-                                                   &workq_elemt->request);
-                    if (mpi_errno != MPI_SUCCESS) goto fn_fail;
-                    break;
-                case ISSEND:
-                    mpi_errno = MPIDI_NM_mpi_issend(workq_elemt->send_buf,
-                                                   workq_elemt->count,
-                                                   workq_elemt->datatype,
-                                                   workq_elemt->rank,
-                                                   workq_elemt->tag,
-                                                   workq_elemt->comm_ptr,
-                                                   workq_elemt->context_offset,
-                                                   &workq_elemt->request);
-                    if (mpi_errno != MPI_SUCCESS) goto fn_fail;
-                    break;
-                case RECV:
-                    mpi_errno = MPIDI_NM_mpi_recv(workq_elemt->recv_buf,
-                                                   workq_elemt->count,
-                                                   workq_elemt->datatype,
-                                                   workq_elemt->rank,
-                                                   workq_elemt->tag,
-                                                   workq_elemt->comm_ptr,
-                                                   workq_elemt->context_offset,
-                                                   workq_elemt->status,
-                                                   &workq_elemt->request);
-                    if (mpi_errno != MPI_SUCCESS) goto fn_fail;
-                    break;
-                case IRECV:
-                    mpi_errno = MPIDI_NM_mpi_irecv(workq_elemt->recv_buf,
-                                                   workq_elemt->count,
-                                                   workq_elemt->datatype,
-                                                   workq_elemt->rank,
-                                                   workq_elemt->tag,
-                                                   workq_elemt->comm_ptr,
-                                                   workq_elemt->context_offset,
-                                                   &workq_elemt->request);
-                    if (mpi_errno != MPI_SUCCESS) goto fn_fail;
-                    break;
-                case PUT:
-                    mpi_errno = MPIDI_NM_mpi_put(workq_elemt->origin_addr,
-                                                 workq_elemt->origin_count,
-                                                 workq_elemt->origin_datatype,
-                                                 workq_elemt->target_rank,
-                                                 workq_elemt->target_disp,
-                                                 workq_elemt->target_count,
-                                                 workq_elemt->target_datatype,
-                                                 workq_elemt->win_ptr);
-                    if (mpi_errno != MPI_SUCCESS) goto fn_fail;
-                    break;
-                }
+
+                mpi_errno = execute_work(workq_elemt);
+                MPIR_Assert(mpi_errno == MPI_SUCCESS);
+
                 MPIDI_WORKQ_ISSUE_STOP;
                 MPL_free(workq_elemt);
             }
