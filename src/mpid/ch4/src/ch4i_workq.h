@@ -292,6 +292,13 @@ fn_fail:
     goto fn_exit;
 }
 
+static void apply(void* arg) {
+    int mpi_errno = MPI_SUCCESS;
+    MPIDI_workq_elemt_t *workq_elemt = (MPIDI_workq_elemt_t*) arg;
+    mpi_errno = execute_work(workq_elemt);
+    MPIR_Assert(mpi_errno == MPI_SUCCESS);
+}
+
 #if !defined(WORKD_DEQ_RANGE)
 
 static inline int MPIDI_workq_ep_progress_body(int ep_idx)
@@ -524,6 +531,32 @@ do {                                                                            
     }                                                                                                       \
 } while (0)
 
+#elif defined (MPIDI_CH4_MT_CSYNC)
+#define MPIDI_DISPATCH_PT2PT(op, func, send_buf, recv_buf, count, datatype, rank, tag, comm, context_offset, status, request, err) \
+do {                                                                                                        \
+    err = MPI_SUCCESS;                                                                                      \
+    int ep_idx;                                                                                             \
+    MPIDI_workq_elemt_t *elemt;                                                                             \
+    MPIDI_find_tag_ep(comm, rank, tag, &ep_idx);                                                            \
+    if (op == ISEND || op == ISSEND || op == SEND)                                                          \
+        *request = MPIR_Request_create(MPIR_REQUEST_KIND__SEND);                                            \
+    else if (op == IRECV || op == RECV)                                                                     \
+        *request = MPIR_Request_create(MPIR_REQUEST_KIND__RECV);                                            \
+    pwork_create(op, send_buf, recv_buf, count,                                                             \
+                    datatype, rank, tag, comm, context_offset, status, *request, &elemt);                   \
+    MPID_Thread_mutex_csync(&MPIDI_CH4_Global.ep_locks[ep_idx], apply, elemt, &err);                           \
+                                                                                                            \
+} while (0)
+
+#define MPIDI_DISPATCH_RMA(op, func, org_addr, org_count, org_dt, trg_rank, trg_disp, trg_count, trg_dt, win, err) \
+do {                                                                                                        \
+    err = MPI_SUCCESS;                                                                                      \
+    int ep_idx;                                                                                             \
+    MPIDI_workq_elemt_t *elemt;                                                                             \
+    MPIDI_find_rma_ep(win,trg_rank, &ep_idx);                                                               \
+    rwork_create(op, org_addr, org_count, org_dt, trg_rank, trg_disp, trg_count, trg_dt, win, &elemt);      \
+    MPID_Thread_mutex_csync(&MPIDI_CH4_Global.ep_locks[ep_idx], apply, elemt, &err);                         \
+} while (0)
 
 #else
 #error "Unknown thread safety model"

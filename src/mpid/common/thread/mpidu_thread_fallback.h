@@ -514,6 +514,7 @@ M*/
     MPL_thread_mutex_trylock(mutex_ptr_, err_ptr_, cs_acq_ptr)
 #define MPIDUI_thread_mutex_unlock(mutex_ptr_, err_ptr_)                \
     MPL_thread_mutex_unlock(mutex_ptr_, err_ptr_)
+#define MPIDUI_thread_mutex_csync(mutex_ptr_, err_ptr_)
 #define MPIDUI_thread_cond_create(cond_ptr_, err_ptr_)                  \
     MPL_thread_cond_create(cond_ptr_, err_ptr_)
 #define MPIDUI_thread_cond_destroy(cond_ptr_, err_ptr_)                 \
@@ -546,6 +547,10 @@ do {                                                                    \
 #define MPIDUI_thread_mutex_unlock(mutex_ptr_, err_ptr_)                \
 do {                                                                    \
     *err_ptr_ = zm_lock_release(mutex_ptr_);                            \
+} while (0)
+#define MPIDUI_thread_mutex_csync(mutex_ptr_, apply, elemt, err_ptr_)   \
+do {                                                                    \
+    *err_ptr_ = zm_lock_csync(mutex_ptr_, apply, elemt);                \
 } while (0)
 #define MPIDUI_thread_cond_create(cond_ptr_, err_ptr_)                  \
 do {                                                                    \
@@ -637,6 +642,13 @@ do {                                                                    \
         MPIDUI_thread_mutex_unlock(&(mutex_ptr_)->mutex, err_ptr_);        \
         MPIR_Assert(*err_ptr_ == 0);                                    \
     } while (0)
+
+#define MPIDU_Thread_mutex_csync(mutex_ptr_, apply, elemt, err_ptr_)                   \
+    do {                                                                \
+        MPIDUI_thread_mutex_csync(&(mutex_ptr_)->mutex, apply, elemt, err_ptr_);          \
+        MPIR_Assert(*err_ptr_ == 0);                                    \
+    } while (0)
+
 
 /*
  * Condition Variables

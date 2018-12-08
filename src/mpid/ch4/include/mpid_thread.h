@@ -44,6 +44,7 @@ typedef MPIDU_Thread_mutex_t MPID_Thread_mutex_t;
 #define MPID_Thread_mutex_lock     MPIDU_Thread_mutex_lock
 #define MPID_Thread_mutex_unlock   MPIDU_Thread_mutex_unlock
 #define MPID_Thread_cond_wait      MPIDU_Thread_cond_wait
+#define MPID_Thread_mutex_csync    MPIDU_Thread_mutex_csync
 #endif /* MPIDI_CH4_USE_TICKET_LOCK */
 
 #define MPID_Thread_create       MPIDU_Thread_create

@@ -223,7 +223,7 @@
 /* Conditional request allocation inside netmod functions */
 #ifdef MPIDI_CH4_MT_DIRECT
 #  define MPIDI_OFI_REQUEST_CREATE_COND(req) 1 /* Always allocated by netmod */
-#elif defined MPIDI_CH4_MT_HANDOFF
+#elif defined(MPIDI_CH4_MT_HANDOFF) || defined(MPIDI_CH4_MT_CSYNC)
 #  define MPIDI_OFI_REQUEST_CREATE_COND(req) 0 /* Always allocated by CH4 */
 #elif defined MPIDI_CH4_MT_TRYLOCK
 #  define MPIDI_OFI_REQUEST_CREATE_COND(req) (req == NULL) /* Depends on upper layer */

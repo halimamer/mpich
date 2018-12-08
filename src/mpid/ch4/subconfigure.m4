@@ -377,6 +377,7 @@ AC_ARG_ENABLE(ch4-mt,
          direct    - Each thread directly accesses lower-level fabric (default)
          handoff   - Use the hand-off model (spawns progress thread)
          trylock   - Use the trylock-enqueue model
+         csync     - Use traditional combining synchronization
     ],,enable_ch4_mt=direct)
 
 case $enable_ch4_mt in
@@ -391,6 +392,10 @@ case $enable_ch4_mt in
      trylock)
          AC_DEFINE([MPIDI_CH4_MT_TRYLOCK], [1],
 	     [Define to enable trylock-enqueue multi-threading model])
+	 ;;
+     csync)
+         AC_DEFINE([MPIDI_CH4_MT_CSYNC], [1],
+	     [Define to enable combining synchronization multi-threading model])
 	 ;;
      *)
         AC_MSG_ERROR([Multi-threading model ${enable_ch4_mt} is unknown])
