@@ -292,6 +292,7 @@ fn_fail:
     goto fn_exit;
 }
 
+static void apply(void* arg) __attribute__((unused));
 static void apply(void* arg) {
     int mpi_errno = MPI_SUCCESS;
     MPIDI_workq_elemt_t *workq_elemt = (MPIDI_workq_elemt_t*) arg;
