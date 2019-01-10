@@ -260,8 +260,9 @@ M*/
                 err_ = 0;                                               \
                 MPIDU_Thread_mutex_trylock(&mutex, &err_, &cs_acq);     \
                 MPIR_Assert(err_ == 0);                                 \
-                if(likely(cs_acq) && unlikely(per_thread->cur_backoff > 1)) {\
-                    per_thread->cur_backoff = 1;                        \
+                if(likely(cs_acq)) {                                    \
+                    if (unlikely(per_thread->cur_backoff > 1))          \
+                        per_thread->cur_backoff = 1;                    \
                 } else {                                                \
                     if(unlikely(per_thread->cur_backoff == 0 )) \
                         per_thread->cur_backoff = 1;                   \
