@@ -420,6 +420,7 @@ static inline int MPIDI_workq_ep_progress(int ep_idx)
     return mpi_errno;
 }
 
+#if defined (MPIDI_CH4_MT_HANDOFF) || defined (MPIDI_CH4_MT_TRYLOCK)
 static inline int MPIDI_workq_global_progress(int* made_progress)
 {
     int mpi_errno = MPI_SUCCESS, ep_idx, cs_acq;
@@ -439,6 +440,11 @@ static inline int MPIDI_workq_global_progress(int* made_progress)
     }
     return mpi_errno;
 }
+#else
+
+#define MPIDI_workq_global_progress(p) do {} while(0)
+
+#endif
 
 #define MPIDI_DISPATCH_PT2PT_RECV(func, send_buf, recv_buf, count, datatype, rank, tag, comm, context_offset, status, request, err) \
     err = func(recv_buf, count, datatype, rank, tag, comm, context_offset, status, request);

@@ -38,6 +38,9 @@ MPL_STATIC_INLINE_PREFIX int MPID_Progress_test(void)
         }
         MPID_THREAD_CS_EXIT(POBJ, MPIDI_CH4I_THREAD_PROGRESS_MUTEX);
     }
+
+    MPIDI_workq_global_progress(&made_progress);
+
     /* todo: progress unexp_list */
     for (i = 0; i < MPIDI_CH4_Global.n_netmod_eps; i++) {
         cs_acq = 1;

@@ -283,8 +283,6 @@ typedef struct MPIDI_CH4_Global_t {
     int ep_progress_model;
     MPID_Thread_mutex_t *ep_locks;
     MPIDI_workq_t *ep_queues;
-    /* Per-endpoint queues for saving pending operations to issue */
-    int progress_hook_id;
 } MPIDI_CH4_Global_t;
 extern MPIDI_CH4_Global_t MPIDI_CH4_Global;
 #ifdef MPL_USE_DBG_LOGGING
