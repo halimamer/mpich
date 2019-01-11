@@ -20,7 +20,7 @@ extern double MPIDI_rma_issue_pend_time;
 extern unsigned long MPIDI_nqueue_traversd;
 extern unsigned long MPIDI_nqueue_nonempty;
 
-static inline double get_wtime() {
+MPL_STATIC_INLINE_PREFIX double get_wtime() {
     double d;
     MPID_Time_t t;
     MPID_Wtime(&t);
@@ -37,7 +37,7 @@ static inline double get_wtime() {
 #define MPIDI_THREAD_EP_PROGRESS_MODEL  MPIDI_THREAD_EP_PROGRESS_MODEL_TRYLOCK_BO
 #endif
 
-static inline void MPIDI_ep_progress_model_init() {
+MPL_STATIC_INLINE_PREFIX void MPIDI_ep_progress_model_init() {
 #if MPIDI_THREAD_EP_PROGRESS_MODEL == MPIDI_THREAD_EP_PROGRESS_MODEL_TRYLOCK_BO
     MPIDI_CH4_Global.ep_progress_model =  MPIDI_THREAD_EP_PROGRESS_MODEL_TRYLOCK_BO;
 #elif MPIDI_THREAD_EP_PROGRESS_MODEL == MPIDI_THREAD_EP_PROGRESS_MODEL_TRYLOCK
@@ -69,7 +69,7 @@ static inline void MPIDI_ep_progress_model_init() {
 
 }
 
-static inline void MPIDI_ep_progress_cs_enter(int ep_idx, int *acq) {
+MPL_STATIC_INLINE_PREFIX void MPIDI_ep_progress_cs_enter(int ep_idx, int *acq) {
     int acquired = 1;
     switch (MPIDI_CH4_Global.ep_progress_model) {
         case MPIDI_THREAD_EP_PROGRESS_MODEL_TRYLOCK_BO:
@@ -85,7 +85,7 @@ static inline void MPIDI_ep_progress_cs_enter(int ep_idx, int *acq) {
     *acq = acquired;
 }
 
-static inline void MPIDI_ep_progress_cs_exit(int ep_idx) {
+MPL_STATIC_INLINE_PREFIX void MPIDI_ep_progress_cs_exit(int ep_idx) {
     MPID_THREAD_CS_EXIT(EP, MPIDI_CH4_Global.ep_locks[ep_idx]);
 }
 
@@ -135,7 +135,7 @@ static inline void MPIDI_ep_progress_cs_exit(int ep_idx) {
 #define MPIDI_WORKQ_RMA_ENQUEUE_STOP
 #endif
 
-static inline void pwork_create(MPIDI_workq_op_t op, const void *send_buf,
+MPL_STATIC_INLINE_PREFIX void pwork_create(MPIDI_workq_op_t op, const void *send_buf,
                                 void *recv_buf, MPI_Aint count,
                                 MPI_Datatype datatype, int rank, int tag,
                                 MPIR_Comm *comm_ptr, int context_offset,
@@ -156,7 +156,7 @@ static inline void pwork_create(MPIDI_workq_op_t op, const void *send_buf,
     *elemt = pt2pt_elemt;
 }
 
-static inline void MPIDI_workq_pt2pt_enqueue_body(MPIDI_workq_op_t op,
+MPL_STATIC_INLINE_PREFIX void MPIDI_workq_pt2pt_enqueue_body(MPIDI_workq_op_t op,
                                                   const void *send_buf,
                                                   void *recv_buf,
                                                   MPI_Aint count,
@@ -177,7 +177,7 @@ static inline void MPIDI_workq_pt2pt_enqueue_body(MPIDI_workq_op_t op,
     MPIDI_workq_enqueue(&MPIDI_CH4_Global.ep_queues[ep_idx], pt2pt_elemt, bucket_idx);
 }
 
-static inline void rwork_create(MPIDI_workq_op_t op, const void *origin_addr,
+MPL_STATIC_INLINE_PREFIX void rwork_create(MPIDI_workq_op_t op, const void *origin_addr,
                                 int origin_count, MPI_Datatype origin_datatype,
                                 int target_rank, MPI_Aint target_disp,
                                 int target_count, MPI_Datatype target_datatype,
@@ -195,7 +195,7 @@ static inline void rwork_create(MPIDI_workq_op_t op, const void *origin_addr,
     *elemt = rma_elemt;
 }
 
-static inline void MPIDI_workq_rma_enqueue_body(MPIDI_workq_op_t op,
+MPL_STATIC_INLINE_PREFIX void MPIDI_workq_rma_enqueue_body(MPIDI_workq_op_t op,
                                                 const void *origin_addr,
                                                 int origin_count,
                                                 MPI_Datatype origin_datatype,
@@ -214,7 +214,7 @@ static inline void MPIDI_workq_rma_enqueue_body(MPIDI_workq_op_t op,
     MPIDI_workq_enqueue(&MPIDI_CH4_Global.ep_queues[ep_idx], rma_elemt, bucket_idx);
 }
 
-static inline int execute_work(MPIDI_workq_elemt_t *workq_elemt) {
+MPL_STATIC_INLINE_PREFIX int execute_work(MPIDI_workq_elemt_t *workq_elemt) {
         int mpi_errno = MPI_SUCCESS;
         switch(workq_elemt->op) {
         case SEND:
@@ -302,7 +302,7 @@ static void apply(void* arg) {
 
 #if !defined(WORKD_DEQ_RANGE)
 
-static inline int MPIDI_workq_ep_progress_body(int ep_idx)
+MPL_STATIC_INLINE_PREFIX int MPIDI_workq_ep_progress_body(int ep_idx)
 {
     int mpi_errno = MPI_SUCCESS;
     MPIDI_workq_elemt_t* workq_elemt = NULL;
@@ -333,7 +333,7 @@ static inline int MPIDI_workq_ep_progress_body(int ep_idx)
 
 #define WORKQ_BATCHSZ 16
 #define WORKQ_PROGRESS_LEN 1
-static inline int MPIDI_workq_ep_progress_body(int ep_idx)
+MPL_STATIC_INLINE_PREFIX int MPIDI_workq_ep_progress_body(int ep_idx)
 {
     int mpi_errno = MPI_SUCCESS;
     void* elemts[WORKQ_BATCHSZ] = {NULL};
@@ -376,7 +376,7 @@ fn_fail:
 
 #endif
 
-static inline void MPIDI_workq_pt2pt_enqueue(MPIDI_workq_op_t op,
+MPL_STATIC_INLINE_PREFIX void MPIDI_workq_pt2pt_enqueue(MPIDI_workq_op_t op,
                                              const void *send_buf,
                                              void *recv_buf,
                                              MPI_Aint count,
@@ -395,7 +395,7 @@ static inline void MPIDI_workq_pt2pt_enqueue(MPIDI_workq_op_t op,
     MPIDI_WORKQ_PT2PT_ENQUEUE_STOP;
 }
 
-static inline void MPIDI_workq_rma_enqueue(MPIDI_workq_op_t op,
+MPL_STATIC_INLINE_PREFIX void MPIDI_workq_rma_enqueue(MPIDI_workq_op_t op,
                                            const void *origin_addr,
                                            int origin_count,
                                            MPI_Datatype origin_datatype,
@@ -413,7 +413,7 @@ static inline void MPIDI_workq_rma_enqueue(MPIDI_workq_op_t op,
     MPIDI_WORKQ_RMA_ENQUEUE_STOP;
 }
 
-static inline int MPIDI_workq_ep_progress(int ep_idx)
+MPL_STATIC_INLINE_PREFIX int MPIDI_workq_ep_progress(int ep_idx)
 {
     int mpi_errno;
     mpi_errno = MPIDI_workq_ep_progress_body(ep_idx);
@@ -421,7 +421,7 @@ static inline int MPIDI_workq_ep_progress(int ep_idx)
 }
 
 #if defined (MPIDI_CH4_MT_HANDOFF) || defined (MPIDI_CH4_MT_TRYLOCK)
-static inline int MPIDI_workq_global_progress(int* made_progress)
+MPL_STATIC_INLINE_PREFIX int MPIDI_workq_global_progress(int* made_progress)
 {
     int mpi_errno = MPI_SUCCESS, ep_idx, cs_acq;
     *made_progress = 1;
