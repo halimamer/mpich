@@ -33,6 +33,8 @@ MPL_STATIC_INLINE_PREFIX double get_wtime() {
 #define MPIDI_THREAD_EP_PROGRESS_MODEL_TRYLOCK      2
 #define MPIDI_THREAD_EP_PROGRESS_MODEL_LOCK         3
 
+#define MPIDI_MAX_COMBINE (1 << 10)
+
 #if !defined(MPIDI_THREAD_EP_PROGRESS_MODEL)
 #define MPIDI_THREAD_EP_PROGRESS_MODEL  MPIDI_THREAD_EP_PROGRESS_MODEL_TRYLOCK_BO
 #endif
@@ -302,9 +304,9 @@ static void apply(void* arg) {
 
 #if !defined(WORKD_DEQ_RANGE)
 
-MPL_STATIC_INLINE_PREFIX int MPIDI_workq_ep_progress_body(int ep_idx)
+MPL_STATIC_INLINE_PREFIX int MPIDI_workq_ep_progress_body(int ep_idx, int *pending)
 {
-    int mpi_errno = MPI_SUCCESS;
+    int mpi_errno = MPI_SUCCESS, counter = 0;
     MPIDI_workq_elemt_t* workq_elemt = NULL;
     MPIDI_workq_t *cur_workq = &MPIDI_CH4_Global.ep_queues[ep_idx];
 
@@ -318,10 +320,19 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_workq_ep_progress_body(int ep_idx)
         mpi_errno = execute_work(workq_elemt);
         MPIR_Assert(mpi_errno == MPI_SUCCESS);
 
+
         MPIDI_WORKQ_ISSUE_STOP;
         MPL_free(workq_elemt);
+
+        counter++;
+        if (unlikely(counter >= MPIDI_MAX_COMBINE))
+            break;
         MPIDI_workq_dequeue(cur_workq, (void**)&workq_elemt);
     }
+    if (likely(counter < MPIDI_MAX_COMBINE))
+        *pending = 0;
+    else
+        *pending = 1;
 
     MPIDI_WORKQ_PROGRESS_STOP;
     return mpi_errno;
@@ -333,7 +344,7 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_workq_ep_progress_body(int ep_idx)
 
 #define WORKQ_BATCHSZ 16
 #define WORKQ_PROGRESS_LEN 1
-MPL_STATIC_INLINE_PREFIX int MPIDI_workq_ep_progress_body(int ep_idx)
+MPL_STATIC_INLINE_PREFIX int MPIDI_workq_ep_progress_body(int ep_idx, int *pending)
 {
     int mpi_errno = MPI_SUCCESS;
     void* elemts[WORKQ_BATCHSZ] = {NULL};
@@ -413,10 +424,10 @@ MPL_STATIC_INLINE_PREFIX void MPIDI_workq_rma_enqueue(MPIDI_workq_op_t op,
     MPIDI_WORKQ_RMA_ENQUEUE_STOP;
 }
 
-MPL_STATIC_INLINE_PREFIX int MPIDI_workq_ep_progress(int ep_idx)
+MPL_STATIC_INLINE_PREFIX int MPIDI_workq_ep_progress(int ep_idx, int *pending)
 {
     int mpi_errno;
-    mpi_errno = MPIDI_workq_ep_progress_body(ep_idx);
+    mpi_errno = MPIDI_workq_ep_progress_body(ep_idx, pending);
     return mpi_errno;
 }
 
@@ -429,7 +440,8 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_workq_global_progress(int* made_progress)
         cs_acq = 1;
         MPIDI_ep_progress_cs_enter(ep_idx, &cs_acq);
         if (cs_acq) {
-            mpi_errno = MPIDI_workq_ep_progress(ep_idx);
+            int pending __attribute__((unused));
+            mpi_errno = MPIDI_workq_ep_progress(ep_idx, &pending);
             if(unlikely(mpi_errno != MPI_SUCCESS)) {
                 MPID_THREAD_CS_EXIT(EP, MPIDI_CH4_Global.ep_locks[ep_idx]);
                 abort();
@@ -506,36 +518,40 @@ do {                                                                            
 #define MPIDI_DISPATCH_PT2PT(op, func, send_buf, recv_buf, count, datatype, rank, tag, comm, context_offset, status, request, err) \
 do {                                                                                                        \
     err = MPI_SUCCESS;                                                                                      \
-    int ep_idx, cs_acq = 0;                                                                                 \
+    int ep_idx, cs_acq = 0, pending = 0;                                                                    \
     MPIDI_find_tag_ep(comm, rank, tag, &ep_idx);                                                            \
     MPID_THREAD_CS_TRYENTER(EP, MPIDI_CH4_Global.ep_locks[ep_idx], cs_acq);                                 \
-    if(!cs_acq) {                                                                                           \
+    if (likely(cs_acq)) {                                                                                   \
+        *request = NULL;                                                                                    \
+        MPIDI_workq_ep_progress(ep_idx, &pending);                                                          \
+        if (likely(!pending))                                                                               \
+            MPIDI_DISPATCH_PT2PT_##op(func, send_buf, recv_buf, count, datatype, rank, tag, comm, context_offset, status, request, err);\
+        MPID_THREAD_CS_EXIT(EP, MPIDI_CH4_Global.ep_locks[ep_idx]);                                         \
+    }                                                                                                       \
+    if(unlikely(!cs_acq || pending)) {                                                                      \
         if (op == ISEND || op == ISSEND || op == SEND)                                                      \
             *request = MPIR_Request_create(MPIR_REQUEST_KIND__SEND);                                        \
         else if (op == IRECV || op == RECV)                                                                 \
             *request = MPIR_Request_create(MPIR_REQUEST_KIND__RECV);                                        \
         MPIDI_workq_pt2pt_enqueue(op, send_buf, recv_buf, count, datatype,                                  \
                                   rank, tag, comm, context_offset, ep_idx, status, *request);               \
-    } else {                                                                                                \
-        *request = NULL;                                                                                    \
-        MPIDI_DISPATCH_PT2PT_##op(func, send_buf, recv_buf, count, datatype, rank, tag, comm, context_offset, status, request, err);\
-        MPID_THREAD_CS_EXIT(EP, MPIDI_CH4_Global.ep_locks[ep_idx]);                                         \
     }                                                                                                       \
 } while (0)
 
 #define MPIDI_DISPATCH_RMA(op, func, org_addr, org_count, org_dt, trg_rank, trg_disp, trg_count, trg_dt, win, err) \
 do {                                                                                                        \
     err = MPI_SUCCESS;                                                                                      \
-    int ep_idx, cs_acq = 0;                                                                                 \
+    int ep_idx, cs_acq = 0, pending = 0;                                                                    \
     MPIDI_find_rma_ep(win,trg_rank, &ep_idx);                                                               \
     MPID_THREAD_CS_TRYENTER(EP, MPIDI_CH4_Global.ep_locks[ep_idx], cs_acq);                                 \
-    if(!cs_acq) {                                                                                           \
-        MPIDI_workq_rma_enqueue(op, org_addr, org_count, org_dt, trg_rank, trg_disp, trg_count, trg_dt, win, ep_idx);\
-    } else {                                                                                                \
-        MPIDI_workq_ep_progress(ep_idx);                                                                    \
-        MPIDI_DISPATCH_RMA_##op(func, org_addr, org_count, org_dt, trg_rank, trg_disp, trg_count, trg_dt, win, err);\
+    if (likely(cs_acq)) {                                                                                   \
+        MPIDI_workq_ep_progress(ep_idx, &pending);                                                          \
+        if (likely(!pending))                                                                               \
+            MPIDI_DISPATCH_RMA_##op(func, org_addr, org_count, org_dt, trg_rank, trg_disp, trg_count, trg_dt, win, err);\
         MPID_THREAD_CS_EXIT(EP, MPIDI_CH4_Global.ep_locks[ep_idx]);                                         \
     }                                                                                                       \
+    if(unlikely(!cs_acq || pending))                                                                        \
+        MPIDI_workq_rma_enqueue(op, org_addr, org_count, org_dt, trg_rank, trg_disp, trg_count, trg_dt, win, ep_idx);\
 } while (0)
 
 #elif defined (MPIDI_CH4_MT_CSYNC)

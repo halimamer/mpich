@@ -19,7 +19,7 @@
 #define FCNAME MPL_QUOTE(FUNCNAME)
 MPL_STATIC_INLINE_PREFIX int MPID_Progress_test(void)
 {
-    int mpi_errno, made_progress, i, cs_acq;
+    int mpi_errno = MPI_SUCCESS, made_progress, i, cs_acq;
 
     MPIR_FUNC_VERBOSE_STATE_DECL(MPID_STATE_MPID_PROGRESS_TEST);
     MPIR_FUNC_VERBOSE_ENTER(MPID_STATE_MPID_PROGRESS_TEST);
