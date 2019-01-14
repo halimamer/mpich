@@ -216,7 +216,8 @@ MPL_STATIC_INLINE_PREFIX void MPIDI_workq_rma_enqueue_body(MPIDI_workq_op_t op,
     MPIDI_workq_enqueue(&MPIDI_CH4_Global.ep_queues[ep_idx], rma_elemt, bucket_idx);
 }
 
-MPL_STATIC_INLINE_PREFIX int execute_work(MPIDI_workq_elemt_t *workq_elemt) {
+MPL_STATIC_INLINE_PREFIX int execute_work(void *workq_elemt_ptr) {
+        MPIDI_workq_elemt_t *workq_elemt = (MPIDI_workq_elemt_t *) workq_elemt_ptr;
         int mpi_errno = MPI_SUCCESS;
         switch(workq_elemt->op) {
         case SEND:
@@ -567,7 +568,7 @@ do {                                                                            
         *request = MPIR_Request_create(MPIR_REQUEST_KIND__RECV);                                            \
     pwork_create(op, send_buf, recv_buf, count,                                                             \
                     datatype, rank, tag, comm, context_offset, status, *request, &elemt);                   \
-    MPID_Thread_mutex_csync(&MPIDI_CH4_Global.ep_locks[ep_idx], apply, elemt, &err);                           \
+    MPID_Thread_mutex_csync(&MPIDI_CH4_Global.ep_locks[ep_idx], execute_work, elemt, &err);                 \
                                                                                                             \
 } while (0)
 

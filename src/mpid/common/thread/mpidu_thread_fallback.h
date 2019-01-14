@@ -79,6 +79,8 @@ typedef MPL_thread_id_t    MPIDU_Thread_id_t;
 typedef MPL_thread_tls_t   MPIDU_Thread_tls_t;
 typedef MPL_thread_func_t  MPIDU_Thread_func_t;
 
+MPL_STATIC_INLINE_PREFIX int execute_work(void *);
+
 /*M MPIDU_THREAD_CS_ENTER - Enter a named critical section
 
   Input Parameters:
@@ -539,7 +541,8 @@ do {                                                                    \
 } while (0)
 #define MPIDUI_thread_mutex_lock(mutex_ptr_, err_ptr_)                  \
 do {                                                                    \
-    *err_ptr_ = zm_lock_acquire(mutex_ptr_);                            \
+    zm_lock_cacq(mutex_ptr_, execute_work);                             \
+    *err_ptr_ = 0;                                                      \
 } while (0)
 #define MPIDUI_thread_mutex_trylock(mutex_ptr_, err_ptr_, cs_acq_ptr)   \
 do {                                                                    \
@@ -551,7 +554,8 @@ do {                                                                    \
 } while (0)
 #define MPIDUI_thread_mutex_csync(mutex_ptr_, apply, elemt, err_ptr_)   \
 do {                                                                    \
-    *err_ptr_ = zm_lock_csync(mutex_ptr_, apply, elemt);                \
+    zm_lock_csync(mutex_ptr_, apply, elemt);                            \
+    *err_ptr_ = 0;                                                      \
 } while (0)
 #define MPIDUI_thread_cond_create(cond_ptr_, err_ptr_)                  \
 do {                                                                    \
