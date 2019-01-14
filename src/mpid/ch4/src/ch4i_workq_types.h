@@ -38,6 +38,12 @@
 #define MPIDI_workq_init(q, n)          zm_swpqueue_init(q)
 #define MPIDI_workq_enqueue(q, d, i)    zm_swpqueue_enqueue(q, d)
 #define MPIDI_workq_dequeue(q, d)       zm_swpqueue_dequeue(q, d)
+#elif defined(MPIDI_USE_ISWPQUEUE)
+#include <queue/zm_iswpqueue.h>
+#define MPIDI_workq_t                   zm_swpqueue_t
+#define MPIDI_workq_init(q, n)          zm_iswpqueue_init(q)
+#define MPIDI_workq_enqueue(q, d, i)    zm_iswpqueue_enqueue(q, d)
+#define MPIDI_workq_dequeue(q, d)       zm_iswpqueue_dequeue(q, d)
 #elif defined(MPIDI_USE_WFQUEUE)
 #include <queue/zm_wfqueue.h>
 #define MPIDI_workq_t                   zm_wfqueue_t
