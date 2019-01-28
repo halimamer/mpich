@@ -546,7 +546,8 @@ do {                                                                    \
 } while (0)
 #define MPIDUI_thread_mutex_trylock(mutex_ptr_, err_ptr_, cs_acq_ptr)   \
 do {                                                                    \
-    *err_ptr_ = zm_lock_tryacq(mutex_ptr_, cs_acq_ptr);                 \
+    zm_lock_tryacq(mutex_ptr_, cs_acq_ptr);                             \
+    *err_ptr_ = 0;                                                      \
 } while (0)
 #define MPIDUI_thread_mutex_unlock(mutex_ptr_, err_ptr_)                \
 do {                                                                    \
