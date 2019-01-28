@@ -248,6 +248,8 @@ MPL_STATIC_INLINE_PREFIX int MPID_Waitall(int count, MPIR_Request * request_ptrs
 
     MPIR_Thread_sync_alloc(&sync, count);
 
+    MPID_THREAD_CS_ENTER(EP, MPIDI_CH4_Global.ep_locks[0]);
+
     /* Fix up number of pending requests and attach the sync. */
     for (i = 0; i < count; i++) {
         if (request_ptrs[i] == NULL || MPIR_Request_is_complete(request_ptrs[i])) {
@@ -258,7 +260,13 @@ MPL_STATIC_INLINE_PREFIX int MPID_Waitall(int count, MPIR_Request * request_ptrs
     }
 
     /* Wait on the synchronization object. */
-    MPIR_Thread_sync_wait(sync);
+#if MPICH_THREAD_GRANULARITY == MPICH_THREAD_GRANULARITY__EP
+    MPIR_Thread_sync_wait(sync, &MPIDI_CH4_Global.ep_locks[0]);
+#else
+    MPIR_Thread_sync_wait(sync, &MPIR_THREAD_GLOBAL_ALLFUNC_MUTEX);
+#endif
+
+    MPID_THREAD_CS_EXIT(EP, MPIDI_CH4_Global.ep_locks[0]);
 
     if (mpi_errno)
         MPIR_ERR_POP(mpi_errno);
@@ -277,6 +285,8 @@ MPL_STATIC_INLINE_PREFIX int MPID_Wait(MPIR_Request * request_ptr)
 
     MPIR_Thread_sync_alloc(&sync, 1);
 
+    MPID_THREAD_CS_ENTER(EP, MPIDI_CH4_Global.ep_locks[0]);
+
     if (request_ptr == NULL || MPIR_Request_is_complete(request_ptr)) {
         MPIR_Thread_sync_signal(sync, 0);
     } else {
@@ -284,7 +294,13 @@ MPL_STATIC_INLINE_PREFIX int MPID_Wait(MPIR_Request * request_ptr)
     }
 
     /* Wait on the synchronization object. */
-    MPIR_Thread_sync_wait(sync);
+#if MPICH_THREAD_GRANULARITY == MPICH_THREAD_GRANULARITY__EP
+    MPIR_Thread_sync_wait(sync, &MPIDI_CH4_Global.ep_locks[0]);
+#else
+    MPIR_Thread_sync_wait(sync, &MPIR_THREAD_GLOBAL_ALLFUNC_MUTEX);
+#endif
+
+    MPID_THREAD_CS_EXIT(EP, MPIDI_CH4_Global.ep_locks[0]);
 
     if (mpi_errno)
         MPIR_ERR_POP(mpi_errno);
@@ -300,9 +316,14 @@ MPL_STATIC_INLINE_PREFIX int MPID_Wait_done()
     int mpi_errno = MPI_SUCCESS;
     MPIR_Thread_sync_t *sync = NULL;
 
+    MPID_THREAD_CS_ENTER(EP, MPIDI_CH4_Global.ep_locks[0]);
+
     MPIR_Thread_sync_get(&sync);
 
     MPIR_Thread_sync_free(sync);
+
+    MPID_THREAD_CS_EXIT(EP, MPIDI_CH4_Global.ep_locks[0]);
+
     if (mpi_errno)
         MPIR_ERR_POP(mpi_errno);
 

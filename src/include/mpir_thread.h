@@ -161,7 +161,7 @@ MPL_STATIC_INLINE_PREFIX void MPIR_Thread_sync_free(MPIR_Thread_sync_t * sync)
     }
 }
 
-MPL_STATIC_INLINE_PREFIX void MPIR_Thread_sync_wait(MPIR_Thread_sync_t * sync)
+MPL_STATIC_INLINE_PREFIX void MPIR_Thread_sync_wait(MPIR_Thread_sync_t * sync, MPID_Thread_mutex_t *mutex)
 {
     int rc;
 
@@ -173,7 +173,7 @@ MPL_STATIC_INLINE_PREFIX void MPIR_Thread_sync_wait(MPIR_Thread_sync_t * sync)
 
     if (!sync->is_server && OPA_load_int(&sync->count) > 0) {
         MPL_DL_APPEND(sync_wait_list.head, sync);
-        MPID_Thread_cond_wait(&sync->cond, &MPIR_THREAD_GLOBAL_ALLFUNC_MUTEX, &rc);
+        MPID_Thread_cond_wait(&sync->cond, mutex, &rc);
         MPL_DL_DELETE(sync_wait_list.head, sync);
     }
 }

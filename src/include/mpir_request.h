@@ -252,8 +252,9 @@ static inline void MPIR_Request_free(MPIR_Request *req)
 
 #ifdef MPICH_THREAD_USE_MDTA
     /* We signal the possible waiter to complete this request. */
-    if (req->sync) {
-        MPIR_Thread_sync_signal(req->sync, 0);
+    MPIR_Thread_sync_t *sync = req->sync;
+    if (sync) {
+        MPIR_Thread_sync_signal(sync, 0);
         req->sync = NULL;
     }
 #endif
