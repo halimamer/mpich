@@ -237,7 +237,7 @@ MPL_STATIC_INLINE_PREFIX int MPID_Progress_deactivate(int id)
     return mpi_errno;
 }
 
-#ifdef MPICH_THREAD_USE_MDTA
+#if defined(MPICH_THREAD_USE_MDTA) && !defined(MPIDI_CH4_MT_HANDOFF)
 
 MPL_STATIC_INLINE_PREFIX int MPID_Waitall(int count, MPIR_Request * request_ptrs[])
 {
