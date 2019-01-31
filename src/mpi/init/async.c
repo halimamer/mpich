@@ -43,17 +43,24 @@ static void print_cpuset(const char* prefix) {
 }
 
 static void set_tozero_cpuset(){
-    int i, err;
+   int i, err;
+   int num_cpus = 0;
 
-    cpu_set_t my_cpuset;
-    err = pthread_getaffinity_np(pthread_self(), sizeof(cpu_set_t), &my_cpuset);
-    if(verbose) print_cpuset("Initial async thread cpu set: ");
+   cpu_set_t my_cpuset;
+   err = pthread_getaffinity_np(pthread_self(), sizeof(cpu_set_t), &my_cpuset);
+   print_cpuset("Initial async thread cpu set: ");
 
-    for(i=1; i<core_count(); i++) CPU_CLR(i, &my_cpuset);
+   for(i=0; i<core_count(); i++) {
+       if (CPU_ISSET(i, &my_cpuset))
+           num_cpus += 1;
+       if (num_cpus > 1)
+           CPU_CLR(i, &my_cpuset);
+   }
 
-    err = pthread_setaffinity_np(pthread_self(), sizeof(cpu_set_t), &my_cpuset);
-    assert(err==0);
-    if(verbose) print_cpuset("New async thread cpu set:");
+   assert(num_cpus!=1);
+   err = pthread_setaffinity_np(pthread_self(), sizeof(cpu_set_t), &my_cpuset);
+   assert(err==0);
+   print_cpuset("New async thread cpu set:");
 }
 
 static void set_odd_cpuset() {
