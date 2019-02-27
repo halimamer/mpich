@@ -216,6 +216,13 @@ MPL_STATIC_INLINE_PREFIX void MPIDI_workq_rma_enqueue_body(MPIDI_workq_op_t op,
     MPIDI_workq_enqueue(&MPIDI_CH4_Global.ep_queues[ep_idx], rma_elemt, bucket_idx);
 }
 
+MPL_STATIC_INLINE_PREFIX void gwork_create(MPIDI_workq_op_t op, int ep_idx, MPIDI_workq_elemt_t **elemt) {
+    MPIDI_workq_elemt_t *gelemt = MPL_malloc(sizeof (*gelemt));
+    gelemt->op  = op;
+    gelemt->ep_idx  = ep_idx;
+    *elemt = gelemt;
+}
+
 MPL_STATIC_INLINE_PREFIX int execute_work(void *workq_elemt_ptr) {
         MPIDI_workq_elemt_t *workq_elemt = (MPIDI_workq_elemt_t *) workq_elemt_ptr;
         int mpi_errno = MPI_SUCCESS;
@@ -285,6 +292,10 @@ MPL_STATIC_INLINE_PREFIX int execute_work(void *workq_elemt_ptr) {
                                          workq_elemt->target_count,
                                          workq_elemt->target_datatype,
                                          workq_elemt->win_ptr);
+            if (mpi_errno != MPI_SUCCESS) goto fn_fail;
+            break;
+        case TEST:
+            mpi_errno = MPIDI_NM_progress(MPIDI_CH4_Global.netmod_context[workq_elemt->ep_idx], 0);
             if (mpi_errno != MPI_SUCCESS) goto fn_fail;
             break;
         }
@@ -582,8 +593,34 @@ do {                                                                            
     MPID_Thread_mutex_csync(&MPIDI_CH4_Global.ep_locks[ep_idx], apply, elemt, &err);                         \
 } while (0)
 
+
+#if defined(MPIDI_CH4_MT_CSYNC_PROGRESS_ANNOUNCE) /* directly execute porgress call */
+#define MPIDI_DISPATCH_PROGRESS(op, ep_idx, err)                                                            \
+do {                                                                                                        \
+    err = MPI_SUCCESS;                                                                                      \
+    MPIDI_workq_elemt_t *elemt;                                                                             \
+    gwork_create(op, ep_idx, &elemt);                                                                       \
+    MPID_Thread_mutex_csync(&MPIDI_CH4_Global.ep_locks[ep_idx], apply, elemt, &err);                        \
+} while (0)
+
+#endif
+
 #else
 #error "Unknown thread safety model"
+#endif
+
+#if !defined(MPIDI_CH4_MT_CSYNC_PROGRESS_ANNOUNCE) /* directly execute porgress call */
+#define MPIDI_DISPATCH_PROGRESS(op, ep_idx, err)                                                            \
+do {                                                                                                        \
+    int cs_acq = 1;                                                                                         \
+    err = MPI_SUCCESS;                                                                                      \
+    MPIDI_ep_progress_cs_enter(ep_idx, &cs_acq);                                                            \
+    if (cs_acq) {                                                                                           \
+        mpi_errno = MPIDI_NM_progress(MPIDI_CH4_Global.netmod_context[ep_idx], 0);                          \
+        MPIR_Assert(mpi_errno == MPI_SUCCESS);                                                              \
+        MPIDI_ep_progress_cs_exit(ep_idx);                                                                  \
+    }                                                                                                       \
+} while (0)
 #endif
 
 #endif /* CH4I_WORKQ_H_INCLUDED */

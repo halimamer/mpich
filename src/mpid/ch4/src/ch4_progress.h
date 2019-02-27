@@ -19,7 +19,7 @@
 #define FCNAME MPL_QUOTE(FUNCNAME)
 MPL_STATIC_INLINE_PREFIX int MPID_Progress_test(void)
 {
-    int mpi_errno = MPI_SUCCESS, made_progress, i, cs_acq;
+    int mpi_errno = MPI_SUCCESS, made_progress, i;
 
     MPIR_FUNC_VERBOSE_STATE_DECL(MPID_STATE_MPID_PROGRESS_TEST);
     MPIR_FUNC_VERBOSE_ENTER(MPID_STATE_MPID_PROGRESS_TEST);
@@ -43,15 +43,9 @@ MPL_STATIC_INLINE_PREFIX int MPID_Progress_test(void)
 
     /* todo: progress unexp_list */
     for (i = 0; i < MPIDI_CH4_Global.n_netmod_eps; i++) {
-        cs_acq = 1;
-        MPIDI_ep_progress_cs_enter(i, &cs_acq);
-        if (cs_acq) {
-            mpi_errno = MPIDI_NM_progress(MPIDI_CH4_Global.netmod_context[i], 0);
-            if (mpi_errno != MPI_SUCCESS) {
-                MPID_THREAD_CS_EXIT(EP, MPIDI_CH4_Global.ep_locks[i]);
-                MPIR_ERR_POP(mpi_errno);
-            }
-            MPIDI_ep_progress_cs_exit(i);
+        MPIDI_DISPATCH_PROGRESS(TEST, i, mpi_errno);
+        if (mpi_errno != MPI_SUCCESS) {
+            MPIR_ERR_POP(mpi_errno);
         }
     }
 #ifdef MPIDI_CH4_EXCLUSIVE_SHM
