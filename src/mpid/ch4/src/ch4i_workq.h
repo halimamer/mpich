@@ -300,18 +300,12 @@ MPL_STATIC_INLINE_PREFIX int execute_work(void *workq_elemt_ptr) {
             break;
         }
 
+        MPL_free(workq_elemt_ptr);
+
 fn_exit:
     return mpi_errno;
 fn_fail:
     goto fn_exit;
-}
-
-static void apply(void* arg) __attribute__((unused));
-static void apply(void* arg) {
-    int mpi_errno = MPI_SUCCESS;
-    MPIDI_workq_elemt_t *workq_elemt = (MPIDI_workq_elemt_t*) arg;
-    mpi_errno = execute_work(workq_elemt);
-    MPIR_Assert(mpi_errno == MPI_SUCCESS);
 }
 
 #if !defined(WORKD_DEQ_RANGE)
@@ -334,7 +328,6 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_workq_ep_progress_body(int ep_idx, int *pendi
 
 
         MPIDI_WORKQ_ISSUE_STOP;
-        MPL_free(workq_elemt);
 
         counter++;
         if (unlikely(counter >= MPIDI_MAX_COMBINE))
@@ -384,7 +377,6 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_workq_ep_progress_body(int ep_idx, int *pendi
                 MPIR_Assert(mpi_errno == MPI_SUCCESS);
 
                 MPIDI_WORKQ_ISSUE_STOP;
-                MPL_free(workq_elemt);
             }
         } else {
             break;
@@ -590,7 +582,7 @@ do {                                                                            
     MPIDI_workq_elemt_t *elemt;                                                                             \
     MPIDI_find_rma_ep(win,trg_rank, &ep_idx);                                                               \
     rwork_create(op, org_addr, org_count, org_dt, trg_rank, trg_disp, trg_count, trg_dt, win, &elemt);      \
-    MPID_Thread_mutex_csync(&MPIDI_CH4_Global.ep_locks[ep_idx], apply, elemt, &err);                         \
+    MPID_Thread_mutex_csync(&MPIDI_CH4_Global.ep_locks[ep_idx], execute_work, elemt, &err);                         \
 } while (0)
 
 
@@ -600,7 +592,7 @@ do {                                                                            
     err = MPI_SUCCESS;                                                                                      \
     MPIDI_workq_elemt_t *elemt;                                                                             \
     gwork_create(op, ep_idx, &elemt);                                                                       \
-    MPID_Thread_mutex_csync(&MPIDI_CH4_Global.ep_locks[ep_idx], apply, elemt, &err);                        \
+    MPID_Thread_mutex_csync(&MPIDI_CH4_Global.ep_locks[ep_idx], execute_work, elemt, &err);                        \
 } while (0)
 
 #endif
