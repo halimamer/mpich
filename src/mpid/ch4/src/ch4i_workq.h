@@ -435,33 +435,6 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_workq_ep_progress(int ep_idx, int *pending)
     return mpi_errno;
 }
 
-#if defined (MPIDI_CH4_MT_HANDOFF) || defined (MPIDI_CH4_MT_TRYLOCK)
-MPL_STATIC_INLINE_PREFIX int MPIDI_workq_global_progress(int* made_progress)
-{
-    int mpi_errno = MPI_SUCCESS, ep_idx, cs_acq;
-    *made_progress = 1;
-    for( ep_idx = 0; ep_idx < MPIDI_CH4_Global.n_netmod_eps; ep_idx++) {
-        cs_acq = 1;
-        MPIDI_ep_progress_cs_enter(ep_idx, &cs_acq);
-        if (cs_acq) {
-            int pending __attribute__((unused));
-            mpi_errno = MPIDI_workq_ep_progress(ep_idx, &pending);
-            if(unlikely(mpi_errno != MPI_SUCCESS)) {
-                MPID_THREAD_CS_EXIT(EP, MPIDI_CH4_Global.ep_locks[ep_idx]);
-                abort();
-                break;
-            }
-            MPIDI_ep_progress_cs_exit(ep_idx);
-        }
-    }
-    return mpi_errno;
-}
-#else
-
-#define MPIDI_workq_global_progress(p) do {} while(0)
-
-#endif
-
 #define MPIDI_DISPATCH_PT2PT_RECV(func, send_buf, recv_buf, count, datatype, rank, tag, comm, context_offset, status, request, err) \
     err = func(recv_buf, count, datatype, rank, tag, comm, context_offset, status, request);
 #define MPIDI_DISPATCH_PT2PT_IRECV(func, send_buf, recv_buf, count, datatype, rank, tag, comm, context_offset, status, request, err) \
@@ -608,6 +581,9 @@ do {                                                                            
     err = MPI_SUCCESS;                                                                                      \
     MPIDI_ep_progress_cs_enter(ep_idx, &cs_acq);                                                            \
     if (cs_acq) {                                                                                           \
+        int pending __attribute__((unused));                                                                \
+        mpi_errno = MPIDI_workq_ep_progress(ep_idx, &pending);                                              \
+        MPIR_Assert(mpi_errno == MPI_SUCCESS);                                                              \
         mpi_errno = MPIDI_NM_progress(MPIDI_CH4_Global.netmod_context[ep_idx], 0);                          \
         MPIR_Assert(mpi_errno == MPI_SUCCESS);                                                              \
         MPIDI_ep_progress_cs_exit(ep_idx);                                                                  \
