@@ -63,6 +63,37 @@ MPL_STATIC_INLINE_PREFIX int MPID_Progress_test(void)
     goto fn_exit;;
 }
 
+#undef FUNCNAME
+#define FUNCNAME MPID_Progress_test_req
+#undef FCNAME
+#define FCNAME MPL_QUOTE(FUNCNAME)
+MPL_STATIC_INLINE_PREFIX int MPID_Progress_test_req(MPIR_Request *req)
+{
+    int mpi_errno;
+    mpi_errno = MPI_SUCCESS;
+
+    MPIR_FUNC_VERBOSE_STATE_DECL(MPID_STATE_MPIDI_PROGRESS_TEST_REQ);
+    MPIR_FUNC_VERBOSE_ENTER(MPID_STATE_MPIDI_PROGRESS_TEST_REQ);
+
+    MPIDI_DISPATCH_PROGRESS(TEST, 0, mpi_errno);
+    if (mpi_errno != MPI_SUCCESS) {
+        MPIR_ERR_POP(mpi_errno);
+    }
+
+#ifdef MPIDI_CH4_EXCLUSIVE_SHM
+    mpi_errno = MPIDI_SHM_progress(0);
+    if (mpi_errno != MPI_SUCCESS) {
+        MPIR_ERR_POP(mpi_errno);
+    }
+#endif
+
+  fn_exit:
+    MPIR_FUNC_VERBOSE_EXIT(MPID_STATE_MPIDI_PROGRESS_TEST_REQ);
+    return mpi_errno;
+  fn_fail:
+    goto fn_exit;
+}
+
 MPL_STATIC_INLINE_PREFIX int MPID_Progress_poke(void)
 {
     int ret;
@@ -105,6 +136,48 @@ MPL_STATIC_INLINE_PREFIX int MPID_Progress_wait(MPID_Progress_state * state)
 
     MPIR_FUNC_VERBOSE_EXIT(MPID_STATE_MPID_PROGRESS_WAIT);
     return ret;
+}
+
+#define MPIR_CVAR_CH4_GLOBAL_PROGRESS_PATIENCE (1 << 10)
+
+#undef FUNCNAME
+#define FUNCNAME MPID_Progress_wait_req
+#undef FCNAME
+#define FCNAME MPL_QUOTE(FUNCNAME)
+MPL_STATIC_INLINE_PREFIX int MPID_Progress_wait_req(MPID_Progress_state * state, MPIR_Request *req)
+{
+    int ret, global_progress_patience;
+
+    MPIR_FUNC_VERBOSE_STATE_DECL(MPID_STATE_MPID_PROGRESS_WAIT);
+    MPIR_FUNC_VERBOSE_ENTER(MPID_STATE_MPID_PROGRESS_WAIT);
+
+    global_progress_patience = MPIR_CVAR_CH4_GLOBAL_PROGRESS_PATIENCE;
+    do {
+        /* local progress */
+        ret = MPID_Progress_test_req(req);
+        if (unlikely(ret))
+            MPIR_ERR_POP(ret);
+        if (MPIR_Request_is_complete(req))
+            break;
+
+        if (--global_progress_patience <= 0) {
+            /* global progress */
+            ret = MPID_Progress_test();
+            if (unlikely(ret))
+                MPIR_ERR_POP(ret);
+            global_progress_patience = MPIR_CVAR_CH4_GLOBAL_PROGRESS_PATIENCE;
+        }
+
+        MPID_THREAD_CS_YIELD(GLOBAL, MPIR_THREAD_GLOBAL_ALLFUNC_MUTEX);
+    } while (1);
+
+    MPIR_FUNC_VERBOSE_EXIT(MPID_STATE_MPID_PROGRESS_WAIT);
+
+  fn_exit:
+    return ret;
+
+  fn_fail:
+    goto fn_exit;
 }
 
 MPL_STATIC_INLINE_PREFIX int MPID_Progress_reset()
