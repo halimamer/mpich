@@ -316,6 +316,9 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_workq_ep_progress_body(int ep_idx, int *pendi
     MPIDI_workq_elemt_t* workq_elemt = NULL;
     MPIDI_workq_t *cur_workq = &MPIDI_CH4_Global.ep_queues[ep_idx];
 
+    if (MPIDI_workq_isempty(cur_workq))
+        return mpi_errno;
+
     MPIDI_WORKQ_PROGRESS_START;
 
     MPIDI_workq_dequeue(cur_workq, (void**)&workq_elemt);
