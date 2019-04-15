@@ -162,7 +162,7 @@ int MPIR_Waitall_impl(int count, MPI_Request array_of_requests[],
         MPID_Progress_start(&progress_state);
         for (i = 0; i < count; ++i) {
             while (!MPIR_Request_is_complete(request_ptrs[i])) {
-                mpi_errno = MPID_Progress_wait(&progress_state);
+                mpi_errno = MPID_Progress_wait_req(&progress_state, request_ptrs[i]);
                 /* must check and handle the error, can't guard with HAVE_ERROR_CHECKING, but it's
                  * OK for the error case to be slower */
                 if (unlikely(mpi_errno)) {
@@ -180,7 +180,6 @@ int MPIR_Waitall_impl(int count, MPI_Request array_of_requests[],
             }
             mpi_errno = request_complete_fastpath(&array_of_requests[i], request_ptrs[i]);
             if (mpi_errno) MPIR_ERR_POP(mpi_errno);
-            MPID_Progress_reset();
         }
 
         MPID_Progress_end(&progress_state);

@@ -75,7 +75,7 @@ int MPIR_Wait_impl(MPI_Request *request, MPI_Status *status)
 			     poll indefinitely. skip over progress_wait */
 	    }
 
-	    mpi_errno = MPID_Progress_wait(&progress_state);
+	    mpi_errno = MPID_Progress_wait_req(&progress_state, request_ptr);
 	    if (mpi_errno) {
 		/* --BEGIN ERROR HANDLING-- */
 		MPID_Progress_end(&progress_state);

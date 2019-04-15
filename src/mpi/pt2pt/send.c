@@ -144,7 +144,7 @@ int MPI_Send(const void *buf, int count, MPI_Datatype datatype, int dest, int ta
         while (!MPIR_Request_is_complete(request_ptr))
 	{
 #if !defined(MPIDI_CH4_MT_HANDOFF)
-	    mpi_errno = MPID_Progress_wait(&progress_state);
+	    mpi_errno = MPID_Progress_wait_req(&progress_state, request_ptr);
 	    if (mpi_errno != MPI_SUCCESS)
 	    {
 		/* --BEGIN ERROR HANDLING-- */

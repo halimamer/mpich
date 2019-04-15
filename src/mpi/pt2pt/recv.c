@@ -157,7 +157,7 @@ int MPI_Recv(void *buf, int count, MPI_Datatype datatype, int source, int tag,
 #if !defined(MPIDI_CH4_MT_HANDOFF)
 	    /* MT: Progress_wait may release the SINGLE_CS while it
 	       waits */
-	    mpi_errno = MPID_Progress_wait(&progress_state);
+	    mpi_errno = MPID_Progress_wait_req(&progress_state, request_ptr);
 	    if (mpi_errno != MPI_SUCCESS)
 	    { 
 		/* --BEGIN ERROR HANDLING-- */
