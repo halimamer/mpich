@@ -71,11 +71,11 @@ MPL_STATIC_INLINE_PREFIX void MPIDI_ep_progress_model_init() {
 
 }
 
-MPL_STATIC_INLINE_PREFIX void MPIDI_ep_progress_cs_enter(int ep_idx, int *acq) {
+MPL_STATIC_INLINE_PREFIX void MPIDI_ep_progress_cs_enter(int ep_idx, int *acq, int *countdown, int *backoff) {
     int acquired = 1;
     switch (MPIDI_CH4_Global.ep_progress_model) {
         case MPIDI_THREAD_EP_PROGRESS_MODEL_TRYLOCK_BO:
-            MPID_THREAD_CS_TRYENTER_BO(EP, MPIDI_CH4_Global.ep_locks[ep_idx], acquired);
+            MPID_THREAD_CS_TRYENTER_BO(EP, MPIDI_CH4_Global.ep_locks[ep_idx], acquired, (*countdown), (*backoff));
             break;
         case MPIDI_THREAD_EP_PROGRESS_MODEL_TRYLOCK:
             MPID_THREAD_CS_TRYENTER(EP, MPIDI_CH4_Global.ep_locks[ep_idx], acquired);
@@ -563,7 +563,7 @@ do {                                                                            
 
 
 #if defined(MPIDI_CH4_MT_CSYNC_PROGRESS_ANNOUNCE) /* directly execute porgress call */
-#define MPIDI_DISPATCH_PROGRESS(op, ep_idx, err)                                                            \
+#define MPIDI_DISPATCH_PROGRESS(op, ep_idx, countdown, backoff, err)                                                            \
 do {                                                                                                        \
     err = MPI_SUCCESS;                                                                                      \
     MPIDI_workq_elemt_t *elemt;                                                                             \
@@ -578,11 +578,11 @@ do {                                                                            
 #endif
 
 #if !defined(MPIDI_CH4_MT_CSYNC_PROGRESS_ANNOUNCE) /* directly execute porgress call */
-#define MPIDI_DISPATCH_PROGRESS(op, ep_idx, err)                                                            \
+#define MPIDI_DISPATCH_PROGRESS(op, ep_idx, countdown, backoff, err)                                                            \
 do {                                                                                                        \
     int cs_acq = 1;                                                                                         \
     err = MPI_SUCCESS;                                                                                      \
-    MPIDI_ep_progress_cs_enter(ep_idx, &cs_acq);                                                            \
+    MPIDI_ep_progress_cs_enter(ep_idx, &cs_acq, countdown, backoff);                                                            \
     if (cs_acq) {                                                                                           \
         int pending __attribute__((unused));                                                                \
         mpi_errno = MPIDI_workq_ep_progress(ep_idx, &pending);                                              \

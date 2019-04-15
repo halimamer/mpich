@@ -19,7 +19,8 @@
 #define FCNAME MPL_QUOTE(FUNCNAME)
 MPL_STATIC_INLINE_PREFIX int MPID_Progress_test(void)
 {
-    int mpi_errno = MPI_SUCCESS, made_progress, i;
+    int mpi_errno = MPI_SUCCESS, made_progress, i, countdown, backoff, err;
+    MPIR_Per_thread_t *per_thread = NULL;
 
     MPIR_FUNC_VERBOSE_STATE_DECL(MPID_STATE_MPID_PROGRESS_TEST);
     MPIR_FUNC_VERBOSE_ENTER(MPID_STATE_MPID_PROGRESS_TEST);
@@ -39,13 +40,25 @@ MPL_STATIC_INLINE_PREFIX int MPID_Progress_test(void)
         MPID_THREAD_CS_EXIT(POBJ, MPIDI_CH4I_THREAD_PROGRESS_MUTEX);
     }
 
+    MPID_THREADPRIV_KEY_GET_ADDR(MPIR_ThreadInfo.isThreaded, MPIR_Per_thread_key,
+                                         MPIR_Per_thread, per_thread, &err);
+
+    MPIR_Assert(err == 0);
+
+    countdown = per_thread->countdown;
+    backoff = per_thread->cur_backoff;
+
     /* todo: progress unexp_list */
     for (i = 0; i < MPIDI_CH4_Global.n_netmod_eps; i++) {
-        MPIDI_DISPATCH_PROGRESS(TEST, i, mpi_errno);
+        MPIDI_DISPATCH_PROGRESS(TEST, i, (&countdown), (&backoff), mpi_errno);
         if (mpi_errno != MPI_SUCCESS) {
             MPIR_ERR_POP(mpi_errno);
         }
     }
+
+    per_thread->countdown = countdown;
+    per_thread->cur_backoff = backoff;
+
 #ifdef MPIDI_CH4_EXCLUSIVE_SHM
     mpi_errno = MPIDI_SHM_progress(0);
     if (mpi_errno != MPI_SUCCESS) {
@@ -67,7 +80,7 @@ MPL_STATIC_INLINE_PREFIX int MPID_Progress_test(void)
 #define FUNCNAME MPID_Progress_test_req
 #undef FCNAME
 #define FCNAME MPL_QUOTE(FUNCNAME)
-MPL_STATIC_INLINE_PREFIX int MPID_Progress_test_req(MPIR_Request *req)
+MPL_STATIC_INLINE_PREFIX int MPID_Progress_test_req(MPIR_Request *req, int *countdown, int *backoff)
 {
     int mpi_errno;
     mpi_errno = MPI_SUCCESS;
@@ -75,7 +88,7 @@ MPL_STATIC_INLINE_PREFIX int MPID_Progress_test_req(MPIR_Request *req)
     MPIR_FUNC_VERBOSE_STATE_DECL(MPID_STATE_MPIDI_PROGRESS_TEST_REQ);
     MPIR_FUNC_VERBOSE_ENTER(MPID_STATE_MPIDI_PROGRESS_TEST_REQ);
 
-    MPIDI_DISPATCH_PROGRESS(TEST, 0, mpi_errno);
+    MPIDI_DISPATCH_PROGRESS(TEST, 0, countdown, backoff, mpi_errno);
     if (mpi_errno != MPI_SUCCESS) {
         MPIR_ERR_POP(mpi_errno);
     }
@@ -146,7 +159,7 @@ MPL_STATIC_INLINE_PREFIX int MPID_Progress_wait(MPID_Progress_state * state)
 #define FCNAME MPL_QUOTE(FUNCNAME)
 MPL_STATIC_INLINE_PREFIX int MPID_Progress_wait_req(MPID_Progress_state * state, MPIR_Request *req)
 {
-    int ret, global_progress_patience;
+    int ret, global_progress_patience, countdown = 0, backoff = 1;
 
     MPIR_FUNC_VERBOSE_STATE_DECL(MPID_STATE_MPID_PROGRESS_WAIT);
     MPIR_FUNC_VERBOSE_ENTER(MPID_STATE_MPID_PROGRESS_WAIT);
@@ -154,13 +167,13 @@ MPL_STATIC_INLINE_PREFIX int MPID_Progress_wait_req(MPID_Progress_state * state,
     global_progress_patience = MPIR_CVAR_CH4_GLOBAL_PROGRESS_PATIENCE;
     do {
         /* local progress */
-        ret = MPID_Progress_test_req(req);
+        ret = MPID_Progress_test_req(req, &countdown, &backoff);
         if (unlikely(ret))
             MPIR_ERR_POP(ret);
         if (MPIR_Request_is_complete(req))
             break;
 
-        if (--global_progress_patience <= 0) {
+        if (unlikely(--global_progress_patience <= 0)) {
             /* global progress */
             ret = MPID_Progress_test();
             if (unlikely(ret))
@@ -170,6 +183,7 @@ MPL_STATIC_INLINE_PREFIX int MPID_Progress_wait_req(MPID_Progress_state * state,
 
         MPID_THREAD_CS_YIELD(GLOBAL, MPIR_THREAD_GLOBAL_ALLFUNC_MUTEX);
     } while (1);
+
 
     MPIR_FUNC_VERBOSE_EXIT(MPID_STATE_MPID_PROGRESS_WAIT);
 

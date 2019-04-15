@@ -242,38 +242,33 @@ M*/
 
 M*/
 
-#define MPIDU_THREAD_CS_TRYENTER_BO(name, mutex, cs_acq) MPIDUI_THREAD_CS_TRYENTER_BO_##name(mutex, cs_acq)
+#define MPIDU_THREAD_CS_TRYENTER_BO(name, mutex, cs_acq, c, b) MPIDUI_THREAD_CS_TRYENTER_BO_##name(mutex, cs_acq, c, b)
 
 #if defined(MPICH_IS_THREADED)
 
-#define MPIDUI_THREAD_CS_TRYENTER_BO_NREC(mutex, cs_acq)                \
+#define MPIDUI_THREAD_CS_TRYENTER_BO_NREC(mutex, cs_acq, countdown, backoff)                \
     do {                                                                \
         if (MPIR_ThreadInfo.isThreaded) {                               \
             int err_ = 0;                                               \
-            MPIR_Per_thread_t *per_thread = NULL;                       \
                                                                         \
             MPL_DBG_MSG(MPIR_DBG_THREAD, TYPICAL, "try locking mutex with backoff"); \
-            MPID_THREADPRIV_KEY_GET_ADDR(MPIR_ThreadInfo.isThreaded, MPIR_Per_thread_key, \
-                                         MPIR_Per_thread, per_thread, &err_); \
-            MPIR_Assert(err_ == 0);                                     \
                                                                         \
             cs_acq = 0;                                                 \
-            if (per_thread->countdown == 0) {                           \
-                err_ = 0;                                               \
+            if (countdown == 0) {                                       \
                 MPIDU_Thread_mutex_trylock(&mutex, &err_, &cs_acq);     \
                 MPIR_Assert(err_ == 0);                                 \
                 if(likely(cs_acq)) {                                    \
-                    if (unlikely(per_thread->cur_backoff > 1))          \
-                        per_thread->cur_backoff = 1;                    \
+                    if (unlikely(backoff > 1))                          \
+                        backoff = 1;                                    \
                 } else {                                                \
-                    if(unlikely(per_thread->cur_backoff == 0 )) \
-                        per_thread->cur_backoff = 1;                   \
-                    else if(per_thread->cur_backoff < MPIR_CVAR_MUTEX_MAX_BACKOFF) \
-                        per_thread->cur_backoff *= 2;                   \
-                    per_thread->countdown = per_thread->cur_backoff;    \
+                    if(unlikely(backoff == 0 ))                         \
+                        backoff = 1;                                    \
+                    else if(backoff < MPIR_CVAR_MUTEX_MAX_BACKOFF)      \
+                        backoff *= 2;                                   \
+                    countdown = backoff;                                \
                 }                                                       \
             } else {                                                    \
-                per_thread->countdown--;                                \
+                countdown--;                                            \
             }                                                           \
         }                                                               \
     } while (0)
@@ -297,7 +292,7 @@ M*/
 #define MPIDUI_THREAD_CS_TRYENTER_BO_GLOBAL do {} while (0)
 #define MPIDUI_THREAD_CS_TRYENTER_BO_POBJ do {} while (0)
 #define MPIDUI_THREAD_CS_TRYENTER_BO_EP_GLOBAL(mutex) do {} while (0)
-#define MPIDUI_THREAD_CS_TRYENTER_BO_EP(mutex, cs_acq) MPIDUI_THREAD_CS_TRYENTER_BO_NREC(mutex, cs_acq)
+#define MPIDUI_THREAD_CS_TRYENTER_BO_EP(mutex, cs_acq, c, b) MPIDUI_THREAD_CS_TRYENTER_BO_NREC(mutex, cs_acq, c, b)
 
 #endif  /* MPICH_THREAD_GRANULARITY */
 
