@@ -26,6 +26,60 @@ int MPI_Test(MPI_Request *request, int *flag, MPI_Status *status) __attribute__(
 #define MPI_Test PMPI_Test
 
 #undef FUNCNAME
+#define FUNCNAME MPIR_Test_impl_nopoll
+#undef FCNAME
+#define FCNAME MPL_QUOTE(FUNCNAME)
+int MPIR_Test_impl_nopoll(MPI_Request *request, int *flag, MPI_Status *status)
+{
+    int mpi_errno = MPI_SUCCESS;
+    int active_flag;
+    MPIR_Request *request_ptr = NULL;
+
+    /* If this is a null request handle, then return an empty status */
+    if (*request == MPI_REQUEST_NULL) {
+	MPIR_Status_set_empty(status);
+	*flag = TRUE;
+	goto fn_exit;
+    }
+    
+    *flag = FALSE;
+
+    MPIR_Request_get_ptr( *request, request_ptr );
+
+    /* If the request is already completed AND we want to avoid calling
+     the progress engine, we could make the call to MPID_Progress_test
+     conditional on the request not being completed. */
+    if (mpi_errno != MPI_SUCCESS) goto fn_fail;
+
+    if (request_ptr->kind == MPIR_REQUEST_KIND__GREQUEST &&
+        request_ptr->u.ureq.greq_fns != NULL &&
+        request_ptr->u.ureq.greq_fns->poll_fn != NULL)
+    {
+        mpi_errno = (request_ptr->u.ureq.greq_fns->poll_fn)(request_ptr->u.ureq.greq_fns->grequest_extra_state, status);
+        if (mpi_errno) MPIR_ERR_POP(mpi_errno);
+    }
+
+    if (MPIR_Request_is_complete(request_ptr)) {
+	mpi_errno = MPIR_Request_complete(request, request_ptr, status,
+					  &active_flag);
+	*flag = TRUE;
+	if (mpi_errno) MPIR_ERR_POP(mpi_errno);
+	/* Fall through to the exit */
+    } else if (unlikely(
+                MPIR_CVAR_ENABLE_FT &&
+                MPID_Request_is_anysource(request_ptr) &&
+                !MPID_Comm_AS_enabled(request_ptr->comm))) {
+        MPIR_ERR_SET(mpi_errno, MPIX_ERR_PROC_FAILED_PENDING, "**failure_pending");
+        if (status != MPI_STATUS_IGNORE) status->MPI_ERROR = mpi_errno;
+        goto fn_fail;
+    }
+ fn_exit:
+    return mpi_errno;
+ fn_fail:
+    goto fn_exit;
+}
+
+#undef FUNCNAME
 #define FUNCNAME MPIR_Test_impl
 #undef FCNAME
 #define FCNAME MPL_QUOTE(FUNCNAME)
@@ -157,7 +211,12 @@ int MPI_Test(MPI_Request *request, int *flag, MPI_Status *status)
 
     /* ... body of routine ...  */
 
+#if !defined(MPIDI_CH4_MT_HANDOFF)
     mpi_errno = MPIR_Test_impl(request, flag, status);
+#else
+    mpi_errno = MPIR_Test_impl_nopoll(request, flag, status);
+#endif
+    
     if (mpi_errno) goto fn_fail;
     
     /* ... end of body of routine ... */
